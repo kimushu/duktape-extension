@@ -83,7 +83,7 @@ void dux_tick(duk_context *ctx)
 	duk_get_prop_string(ctx, -1, DUX_COMMON_TICK);
 	if (duk_is_object(ctx, -1))
 	{
-		duk_enum(ctx, -1, 0);
+		duk_enum(ctx, -1, DUK_ENUM_INCLUDE_INTERNAL);
 		/* [ ... thr stash obj enum ] */
 		while (duk_next(ctx, -1, 1))
 		{
