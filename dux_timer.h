@@ -25,6 +25,7 @@ enum
 };
 
 extern void dux_timer_init(duk_context *ctx);
+extern duk_uint_t dux_timer_tick(duk_context *ctx);
 
 #ifdef __cplusplus
 }	/* extern "C" */
