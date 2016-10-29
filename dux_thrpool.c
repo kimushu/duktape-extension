@@ -1,31 +1,18 @@
 /*
- * [ How to use thread pool ]
+ * Native C functions:
+ *    void dux_push_thrpool(duk_context *ctx,
+ *                          duk_uint_t min_threads, duk_uint_t max_threads);
+ *    void dux_thrpool_queue(duk_context *ctx, duk_idx_t pool_index,
+ *                           dux_thrpool_worker_t worker,
+ *                           dux_thrpool_completer_t completer);
+ *    duk_uint_t dux_thrpool_tick(duk_context *ctx);
  *
- * // (1) Prepare worker C function
- * duk_int_t worker(void *param)
- * {
- *   // This thread runs on worker thread.
- *   // Do not access any object in Duktape heap!
- * }
- *
- * // (2) Create thread pool instance
- * dux_push_thrpool(
- *   ctx,   // Duktape context
- *   1,     // Minimum number of threads
- *   3,     // Maximum number of threads
- * );
- *
- * // (3) Call thread pool to queue new job with 4 arguments
- * duk_push_pointer(ctx, worker);   // Worker function (int (*)(void *))
- * duk_push_pointer(ctx, data_ptr); // Pointer to data for worker
- * duk_push_uint(ctx, data_len);    // Length of data
- * duk_push_c_function(ctx, cb);    // Callback (callable object)
- * duk_call(ctx, 4);                // Queue job
- * // data_ptr can be freed after queueing job
- *
- * // (4) Wait for callback
- * for (;;) dux_tick(ctx);
- *
+ * Internal data structure:
+ *    heap_stash[DUX_THRPOOL_LINK] = <PlainBuffer dux_thrpool_link_t>;
+ *    <thrpool object> = {
+ *      buf: <PlainBuffer dux_thrpool_t>,
+ *      thread: <Duktape.Thread>
+ *    };
  */
 
 #include <pthread.h>
@@ -34,13 +21,13 @@
 #include "dux_thrpool.h"
 #include "dux_common.h"
 
-static const char *const DUX_THRPOOL_TICK = "\xff" "dux_thrpool.tick";
+extern void top_level_error(duk_context *ctx);
 
-static const char *const DUX_THRPOOL_HEAD = "\xff" "dux_thrpool.head";
-static const char *const DUX_THRPOOL_TAIL = "\xff" "dux_thrpool.tail";
+static const char *const DUX_THRPOOL_LINK = "dux_thrpool.link";
+static const char *const DUX_THRPOOL_JOB = "\xff" "dux_thrpool.job";
 
-static const char *const DUX_THRPOOL_DATA = "\xff" "data";
-static const char *const DUX_THRPOOL_THREAD = "\xff" "thread";
+static const char *const DUX_THRPOOL_BUF = "buf";
+static const char *const DUX_THRPOOL_THREAD = "thread";
 
 enum
 {
@@ -71,10 +58,11 @@ typedef struct dux_thrpool_job_t
 {
 	struct dux_thrpool_t *pool;
 	struct dux_thrpool_job_t *prev_job, *next_job;
-	int (*worker)(void *);
-	int result;
-
-	char user_data[0];
+	duk_int_t result;
+	dux_thrpool_worker_t worker;
+	dux_thrpool_completer_t completer;
+	duk_size_t num_blocks;
+	dux_thrpool_block_t blocks[0];
 }
 dux_thrpool_job_t;
 
@@ -103,8 +91,52 @@ typedef struct dux_thrpool_t
 }
 dux_thrpool_t;
 
+typedef struct dux_thrpool_link_t
+{
+	dux_thrpool_t *head, *tail;
+}
+dux_thrpool_link_t;
+
 #define MAX_THREADS	(sizeof(((dux_thrpool_t *)0)->thread_mask) * 8)
 
+/*
+ * Get link list of thread pools
+ */
+static dux_thrpool_link_t *thrpool_get_link(duk_context *ctx)
+{
+	/* [ ... ] */
+	dux_thrpool_link_t *link;
+
+	duk_push_heap_stash(ctx);
+	/* [ ... stash ] */
+	duk_get_prop_string(ctx, -1, DUX_THRPOOL_LINK);
+	/* [ ... stash buf/undefined ] */
+	link = (dux_thrpool_link_t *)duk_get_buffer(ctx, -1, NULL);
+
+	if (link)
+	{
+		/* [ ... stash buf ] */
+		duk_pop_2(ctx);
+		/* [ ... ] */
+		return link;
+	}
+
+	/* [ ... stash undefined ] */
+	duk_push_fixed_buffer(ctx, sizeof(*link));
+	/* [ ... stash undefined buf ] */
+	link = (dux_thrpool_link_t *)duk_get_buffer(ctx, -1, NULL);
+	link->head = NULL;
+	link->tail = NULL;
+	duk_put_prop_string(ctx, -3, DUX_THRPOOL_LINK);
+	/* [ ... stash undefined ] */
+	duk_pop_2(ctx);
+	/* [ ... ] */
+	return link;
+}
+
+/*
+ * Worker thread entry
+ */
 static void *thrpool_thread(dux_thrpool_thread_t *thread)
 {
 	dux_thrpool_t *pool;
@@ -112,7 +144,7 @@ static void *thrpool_thread(dux_thrpool_thread_t *thread)
 
 	for (;;)
 	{
-		dux_thrpool_job_t *job;
+		dux_thrpool_job_t *job, *next_job, *prev_job;
 
 		thread->state = THRPOOL_STATE_IDLE;
 		if (sem_wait(&pool->sem) != 0)
@@ -130,15 +162,18 @@ static void *thrpool_thread(dux_thrpool_thread_t *thread)
 		job = pool->pend_head;
 		if (job)
 		{
-			pool->pend_head = job->next_job;
-			if (pool->pend_head)
+			next_job = pool->pend_head = job->next_job;
+			if (next_job)
 			{
-				pool->pend_head->prev_job = NULL;
+				next_job->prev_job = NULL;
 			}
 			else
 			{
 				pool->pend_tail = NULL;
 			}
+
+			job->prev_job = NULL;
+			job->next_job = NULL;
 		}
 		pthread_mutex_unlock(&pool->lock);
 
@@ -148,25 +183,27 @@ static void *thrpool_thread(dux_thrpool_thread_t *thread)
 		}
 
 		thread->state = THRPOOL_STATE_WORKING;
-		job->result = (*job->worker)(&job->user_data);
+		job->result = (*job->worker)(&job->blocks[0], job->num_blocks);
 
 		pthread_mutex_lock(&pool->lock);
-		job->prev_job = pool->done_tail;
-		job->next_job = NULL;
-		if (pool->done_tail)
+		prev_job = job->prev_job = pool->done_tail;
+		pool->done_tail = job;
+		if (prev_job)
 		{
-			pool->done_tail->next_job = job;
-			pool->done_tail = job;
+			prev_job->next_job = job;
 		}
 		else
 		{
-			pool->done_head = pool->done_tail = job;
+			pool->done_head = job;
 		}
 		pthread_mutex_unlock(&pool->lock);
 	}
 }
 
-static void thrpool_increase(dux_thrpool_t *pool)
+/*
+ * Increase worker thread
+ */
+static void thrpool_increase(duk_context *ctx, dux_thrpool_t *pool)
 {
 	dux_thrpool_thread_t *thread;
 	duk_uint_t tidx;
@@ -198,8 +235,10 @@ static void thrpool_increase(dux_thrpool_t *pool)
 		thread->request = THRPOOL_REQ_NONE;
 		if (pthread_create(&thread->tid, NULL, (void *(*)(void *))thrpool_thread, thread) != 0)
 		{
-			// TODO: cannot create thread
 			thread->state = THRPOOL_STATE_DEAD;
+			duk_push_error_object(ctx, DUK_ERR_INTERNAL_ERROR, "failed to create a new thread");
+			top_level_error(ctx);
+			duk_pop(ctx);
 			return;
 		}
 
@@ -209,94 +248,23 @@ static void thrpool_increase(dux_thrpool_t *pool)
 }
 
 /*
- * C function entry for thread pool queueing
- */
-static duk_ret_t thrpool_queue(duk_context *ctx)
-{
-	/* [ pointer pointer uint func ] */
-
-	dux_thrpool_t *pool;
-	dux_thrpool_job_t *job;
-	int pended;
-	int (*worker)(void *) = duk_require_pointer(ctx, 0);
-	void *data_ptr = duk_require_pointer(ctx, 1);
-	duk_uint_t data_len = duk_require_uint(ctx, 2);
-	duk_require_callable(ctx, 3);
-
-	duk_push_current_function(ctx);
-	duk_get_prop_string(ctx, -1, DUX_THRPOOL_DATA);
-	pool = (dux_thrpool_t *)duk_require_pointer(ctx, -1);
-	duk_pop_2(ctx);
-
-	/* [ pointer pointer uint func ] */
-
-	job = (dux_thrpool_job_t *)dux_calloc(ctx, sizeof(*job) + data_len);
-	if (!job)
-	{
-		return DUK_RET_ALLOC_ERROR;
-	}
-
-	job->pool = pool;
-	job->worker = worker;
-	job->result = -1;
-	if (data_ptr && (data_len > 0))
-	{
-		memcpy(&job->user_data, data_ptr, data_len);
-	}
-
-	duk_push_pointer(pool->cb_ctx, job);
-	duk_xcopy_top(pool->cb_ctx, ctx, 1);
-	duk_put_prop(pool->cb_ctx, -2);
-
-	pthread_mutex_lock(&pool->lock);
-	if (pool->pend_tail)
-	{
-		pool->pend_tail->next_job = job;
-		pool->pend_tail = job;
-	}
-	else
-	{
-		pool->pend_head = pool->pend_tail = job;
-	}
-	pthread_mutex_unlock(&pool->lock);
-
-	sem_post(&pool->sem);
-	sem_getvalue(&pool->sem, &pended);
-
-	if ((pended > 0) && (pool->live_threads < pool->max_threads))
-	{
-		thrpool_increase(pool);
-	}
-
-	return 0;	/* return undefined; */
-}
-
-/*
  * C function entry for thread pool finalization
  */
 static duk_ret_t thrpool_finalize(duk_context *ctx)
 {
-	/* [ func ] */
+	/* [ obj(thrpool) ] */
+	dux_thrpool_link_t *link;
 	dux_thrpool_t *pool;
 	dux_thrpool_thread_t *thread;
-	dux_thrpool_job_t *job;
 	duk_uint_t tidx;
 
-	duk_get_prop_string(ctx, -1, DUX_THRPOOL_DATA);
-	pool = (dux_thrpool_t *)duk_get_pointer(ctx, -1);
-	duk_pop(ctx);
-	duk_del_prop_string(ctx, -1, DUX_THRPOOL_DATA);
-
+	pool = (dux_thrpool_t *)duk_get_buffer_data(ctx, -1, NULL);
 	if (!pool)
 	{
 		return 0;
 	}
 
-	pool->cb_ctx = NULL;
-	duk_del_prop_string(ctx, -1, DUX_THRPOOL_THREAD);
-
-	duk_push_heap_stash(ctx);
-	/* [ func stash ] */
+	link = thrpool_get_link(ctx);
 
 	/* Remove from pool chain */
 	if (pool->prev_pool)
@@ -305,8 +273,7 @@ static duk_ret_t thrpool_finalize(duk_context *ctx)
 	}
 	else
 	{
-		duk_push_pointer(ctx, pool->next_pool);
-		duk_put_prop_string(ctx, -2, DUX_THRPOOL_HEAD);
+		link->head = pool->next_pool;
 	}
 
 	if (pool->next_pool)
@@ -315,12 +282,8 @@ static duk_ret_t thrpool_finalize(duk_context *ctx)
 	}
 	else
 	{
-		duk_push_pointer(ctx, pool->prev_pool);
-		duk_put_prop_string(ctx, -2, DUX_THRPOOL_TAIL);
+		link->tail = pool->prev_pool;
 	}
-
-	duk_pop(ctx);
-	/* [ func ] */
 
 	/* Stop all worker threads */
 	for (tidx = 0, thread = pool->threads;
@@ -349,18 +312,9 @@ static duk_ret_t thrpool_finalize(duk_context *ctx)
 	}
 
 	/* Destroy pending jobs (callback never been invoked) */
-	for (job = pool->pend_head; job;)
-	{
-		dux_thrpool_job_t *next_job = job->next_job;
-		duk_free(ctx, job);
-		job = next_job;
-	}
-	for (job = pool->done_head; job;)
-	{
-		dux_thrpool_job_t *next_job = job->next_job;
-		duk_free(ctx, job);
-		job = next_job;
-	}
+	duk_remove(pool->cb_ctx, -1);
+	pool->cb_ctx = NULL;
+	duk_del_prop_string(ctx, -1, DUX_THRPOOL_THREAD);
 
 	/* Destroy sync objects */
 	pthread_mutex_destroy(&pool->lock);
@@ -373,26 +327,200 @@ static duk_ret_t thrpool_finalize(duk_context *ctx)
 }
 
 /*
+ * Initialize thread pool
+ */
+void dux_thrpool_init(duk_context *ctx)
+{
+	/* do nothing */
+}
+
+/*
+ * Push new thread pool object
+ */
+void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk_uint_t max_threads)
+{
+	/* [ ... ] */
+	dux_thrpool_link_t *link;
+	dux_thrpool_t *pool;
+	duk_size_t size;
+	duk_uint_t tidx;
+
+	if (min_threads > max_threads)
+	{
+		duk_error(ctx, DUK_ERR_RANGE_ERROR,
+				"max_threads must be equal or larger than min_threads");
+		// never returns
+	}
+
+	if (max_threads > MAX_THREADS)
+	{
+		duk_error(ctx, DUK_ERR_RANGE_ERROR,
+				"max_threads cannot exceed %u", MAX_THREADS);
+		// never returns
+	}
+
+	size = sizeof(dux_thrpool_t) + sizeof(*pool->threads) * max_threads;
+	duk_push_object(ctx);
+	/* [ ... obj ] */
+	duk_push_fixed_buffer(ctx, size);
+	/* [ ... obj buf ] */
+	pool = (dux_thrpool_t *)duk_get_buffer(ctx, -1, NULL);
+	memset(pool, 0, size);
+	duk_put_prop_string(ctx, -2, DUX_THRPOOL_BUF);
+	/* [ ... obj(thrpool) ] */
+
+	pool->min_threads = min_threads;
+	pool->max_threads = max_threads;
+
+	sem_init(&pool->sem, 0, 0);
+	pthread_mutex_init(&pool->lock, NULL);
+
+	for (tidx = 0; tidx < max_threads; ++tidx)
+	{
+		pool->threads[tidx].index = tidx;
+	}
+
+	/* Set finalizer */
+	duk_push_c_function(ctx, thrpool_finalize, 1);
+	duk_set_finalizer(ctx, -2);
+	/* [ ... obj(thrpool) ] */
+
+	/* Create Duktape thread */
+	duk_push_thread(ctx);
+	pool->cb_ctx = duk_get_context(ctx, -1);
+	duk_put_prop_string(ctx, -2, DUX_THRPOOL_THREAD);
+	/* [ ... obj(thrpool) ] */
+
+	duk_push_object(pool->cb_ctx);
+	/* cb_ctx: [ obj ] */
+
+	/* Add to link list */
+	link = thrpool_get_link(ctx);
+	pool->prev_pool = link->tail;
+	link->tail = pool;
+
+	for (tidx = 0; tidx < min_threads; ++tidx)
+	{
+		thrpool_increase(ctx, pool);
+	}
+	/* [ ... obj(thrpool) ] */
+}
+
+/* Queue job to thread pool */
+void dux_thrpool_queue(duk_context *ctx,
+                       duk_idx_t pool_index,
+                       dux_thrpool_worker_t worker,
+                       dux_thrpool_completer_t completer)
+{
+	/* [ ... obj(thrpool) ... job ] */
+	/*       ^pool_index      ^top  */
+
+	duk_size_t num_blocks;
+	dux_thrpool_t *pool;
+	dux_thrpool_job_t *job;
+	duk_uarridx_t index;
+	dux_thrpool_block_t *block;
+	int pended;
+
+	/* Get pool data */
+	duk_get_prop_string(ctx, pool_index, DUX_THRPOOL_BUF);
+	pool = (dux_thrpool_t *)duk_require_buffer(ctx, -1, NULL);
+	duk_pop(ctx);
+
+	/* Check job */
+	if (!duk_is_array(ctx, -1))
+	{
+		duk_error(ctx, DUK_ERR_TYPE_ERROR, "job object must be an array");
+		// never returns
+	}
+	num_blocks = duk_get_length(ctx, -1);
+
+	/* Add job data */
+	duk_push_fixed_buffer(ctx, sizeof(*job) + sizeof(*block) * num_blocks);
+	/* [ ... obj(thrpool) ... job buf ] */
+	job = (dux_thrpool_job_t *)duk_get_buffer(ctx, -1, NULL);
+	duk_put_prop_string(ctx, -2, DUX_THRPOOL_JOB);
+	/* [ ... obj(thrpool) ... job ] */
+
+	job->pool = pool;
+	job->result = -1;
+	job->worker = worker;
+	job->completer = completer;
+	job->num_blocks = num_blocks;
+
+	block = &job->blocks[0];
+	for (index = 0; index < num_blocks; ++index, ++block)
+	{
+		void *pointer;
+		duk_size_t length;
+
+		duk_get_prop_index(ctx, -2, index);
+		/* [ ... obj(thrpool) ... job any ] */
+		if ((pointer = (void *)duk_get_lstring(ctx, -1, &length)) ||
+			(pointer = duk_get_buffer_data(ctx, -1, &length)))
+		{
+			// string / plain buffer / Buffer object
+			block->pointer = pointer;
+			block->length = length;
+		}
+		else
+		{
+			block->pointer = NULL;
+			block->length = 0;
+		}
+		duk_pop(ctx);
+		/* [ ... obj(thrpool) ... job ] */
+	}
+
+	duk_push_pointer(pool->cb_ctx, job);
+	duk_xmove_top(pool->cb_ctx, ctx, 1);
+	/* [ ... obj(thrpool) ... ] */
+	duk_put_prop(pool->cb_ctx, -3);
+
+	pthread_mutex_lock(&pool->lock);
+	if (pool->pend_tail)
+	{
+		pool->pend_tail->next_job = job;
+		pool->pend_tail = job;
+	}
+	else
+	{
+		pool->pend_head = pool->pend_tail = job;
+	}
+	pthread_mutex_unlock(&pool->lock);
+
+	sem_post(&pool->sem);
+	sem_getvalue(&pool->sem, &pended);
+
+	if ((pended > 0) && (pool->live_threads < pool->max_threads))
+	{
+		thrpool_increase(ctx, pool);
+	}
+
+	/* [ ... obj(thrpool) ... ] */
+}
+
+/*
  * Tick handler for thread pool
  */
-static duk_ret_t thrpool_tick(duk_context *ctx)
+duk_uint_t dux_thrpool_tick(duk_context *ctx)
 {
+	/* [ ... ] */
 	dux_thrpool_t *pool;
+	duk_uint_t processed = 0;
 
 	sched_yield();
 
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	duk_get_prop_string(ctx, -1, DUX_THRPOOL_HEAD);
-	pool = duk_get_pointer(ctx, -1);
-	duk_pop_2(ctx);
-	/* [ ... ] */
-
+	pool = thrpool_get_link(ctx)->head;
 	while (pool)
 	{
+		duk_context *cb_ctx = pool->cb_ctx;
+		++processed;
+
 		for (;;)
 		{
 			dux_thrpool_job_t *job;
+
 			pthread_mutex_lock(&pool->lock);
 			job = pool->done_head;
 			if (job)
@@ -415,109 +543,30 @@ static duk_ret_t thrpool_tick(duk_context *ctx)
 			}
 
 			/* cb_ctx: [ obj ] */
-			duk_push_pointer(pool->cb_ctx, job);
-			duk_get_prop(pool->cb_ctx, -2);
+			duk_push_c_function(cb_ctx, job->completer, 2);
 			/* cb_ctx: [ obj func ] */
-			duk_push_pointer(pool->cb_ctx, job);
-			duk_del_prop(pool->cb_ctx, -2);
-			duk_push_pointer(pool->cb_ctx, &job->user_data);
-			/* cb_ctx: [ obj func ptr ] */
-			duk_call(pool->cb_ctx, 1);
-			duk_pop(pool->cb_ctx);
+			duk_push_pointer(cb_ctx, job);
+			duk_get_prop(cb_ctx, -2);
+			/* cb_ctx: [ obj func job ] */
+			duk_push_pointer(cb_ctx, job);
+			duk_del_prop(cb_ctx, -2);
+			/* cb_ctx: [ obj func job ] */
+			duk_push_int(cb_ctx, job->result);
+			/* cb_ctx: [ obj func job int ] */
+			if (duk_pcall(cb_ctx, 2) != 0)
+			{
+				/* cb_ctx: [ obj err ] */
+				top_level_error(cb_ctx);
+			}
+			/* cb_ctx: [ obj retval/err ] */
+			duk_pop(cb_ctx);
 			/* cb_ctx: [ obj ] */
-			duk_free(ctx, job);
 		}
 
 		pool = pool->next_pool;
 	}
 
-	return 0;
-}
-
-/*
- * Push new thread pool object
- */
-void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk_uint_t max_threads)
-{
-	dux_thrpool_t *pool;
-	duk_size_t size;
-	duk_uint_t tidx;
-
-	if (min_threads > max_threads)
-	{
-		duk_error(ctx, DUK_ERR_RANGE_ERROR,
-				"max_threads must be equal or larger than min_threads");
-		// never returns
-	}
-
-	if (max_threads > MAX_THREADS)
-	{
-		duk_error(ctx, DUK_ERR_RANGE_ERROR,
-				"max_threads cannot exceed %u", MAX_THREADS);
-		// never returns
-	}
-
-	size = sizeof(dux_thrpool_t) + sizeof(*pool->threads) * max_threads;
-	pool = (dux_thrpool_t *)dux_calloc(ctx, size);
-	if (!pool)
-	{
-		duk_error(ctx, DUK_ERR_ALLOC_ERROR, "not enough memory");
-		// never returns
-	}
-
-	pool->min_threads = min_threads;
-	pool->max_threads = max_threads;
-
-	sem_init(&pool->sem, 0, 0);
-	pthread_mutex_init(&pool->lock, NULL);
-
-	for (tidx = 0; tidx < max_threads; ++tidx)
-	{
-		pool->threads[tidx].index = tidx;
-	}
-
-	duk_push_c_function(ctx, thrpool_queue, 4);
-
-	/* Set finalizer */
-	duk_push_c_function(ctx, thrpool_finalize, 1);
-	duk_set_finalizer(ctx, -2);
-
-	/* Create Duktape thread */
-	duk_push_thread(ctx);
-	pool->cb_ctx = duk_get_context(ctx, -1);
-	duk_put_prop_string(ctx, -2, DUX_THRPOOL_THREAD);
-
-	/* Associate pool data */
-	duk_push_pointer(ctx, pool);
-	duk_put_prop_string(ctx, -2, DUX_THRPOOL_DATA);
-
-	/* Add to link list */
-	duk_push_heap_stash(ctx);
-	duk_get_prop_string(ctx, -1, DUX_THRPOOL_TAIL);
-	/* [ ... func stash ptr/undef ] */
-	pool->prev_pool = (dux_thrpool_t *)duk_get_pointer(ctx, -1);
-	duk_pop(ctx);
-	duk_push_pointer(ctx, pool);
-	if (pool->prev_pool)
-	{
-		pool->prev_pool->next_pool = pool;
-	}
-	else
-	{
-		duk_dup_top(ctx);
-		duk_put_prop_string(ctx, -3, DUX_THRPOOL_HEAD);
-
-		duk_push_c_function(ctx, thrpool_tick, 0);
-		dux_register_tick(ctx, DUX_THRPOOL_TICK);
-	}
-	/* [ ... func stash ptr ] */
-	duk_put_prop_string(ctx, -2, DUX_THRPOOL_TAIL);
-	duk_pop(ctx);
-	/* [ ... func ] */
-
-	for (tidx = 0; tidx < min_threads; ++tidx)
-	{
-		thrpool_increase(pool);
-	}
+	/* [ ... ] */
+	return processed;
 }
 
