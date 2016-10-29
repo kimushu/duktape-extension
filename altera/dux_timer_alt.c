@@ -26,6 +26,9 @@ extern void top_level_error(duk_context *ctx);
 
 static const char *const DUX_TIMER_LIST = "dux_timer_alt.timers";
 
+static const char *const DUX_TIMER_BUF = "buf";
+static const char *const DUX_TIMER_FUNC = "func";
+
 static duk_uint_t g_time_per_tick;
 static duk_uint_t g_last_time;
 static alt_u32 g_last_tick;
@@ -92,22 +95,22 @@ static duk_ret_t timer_set(duk_context *ctx, duk_uint_t flags)
 	/* [ func "bind" undef arg1 ... argN ] */
 	duk_call_prop(ctx, 0, 1 + num_args);
 	/* [ func bound_func ] */
+	duk_push_object(ctx);
 	duk_push_fixed_buffer(ctx, sizeof(dux_timer_t));
-	duk_push_buffer_object(ctx, -1, 0, sizeof(dux_timer_t), DUK_BUFOBJ_DUKTAPE_BUFFER);
-	timer = (dux_timer_t *)duk_get_buffer_data(ctx, -1, NULL);
-	/* [ func bound_func buf bufobj ] */
+	timer = (dux_timer_t *)duk_get_buffer(ctx, -1, NULL);
+	duk_put_prop_string(ctx, -2, DUX_TIMER_BUF);
+	/* [ func bound_func obj(timer) ] */
 	duk_replace(ctx, 0);
-	duk_pop(ctx);
-	/* [ bufobj bound_func ] */
-	duk_put_prop_string(ctx, -2, "func");
-	/* [ bufobj ] */
+	/* [ obj(timer) bound_func ] */
+	duk_put_prop_string(ctx, -2, DUX_TIMER_FUNC);
+	/* [ obj(timer) ] */
 	timer_push_array(ctx);
-	/* [ bufobj arr ] */
+	/* [ obj(timer) arr ] */
 	duk_get_prop_index(ctx, -1, 0);
 	id = duk_get_uint(ctx, -1);
 	duk_pop(ctx);
 	duk_swap_top(ctx, 0);
-	/* [ arr bufobj ] */
+	/* [ arr obj(timer) ] */
 
 	timer->id = id;
 	timer->flags = flags;
@@ -167,8 +170,10 @@ static duk_ret_t timer_clear(duk_context *ctx, duk_uint_t flags)
 	/* [ uint arr ] */
 	if (duk_get_prop_index(ctx, -1, id))
 	{
-		/* [ uint arr bufobj ] */
-		timer = (dux_timer_t *)duk_get_buffer_data(ctx, -1, NULL);
+		/* [ uint arr obj(timer) ] */
+		duk_get_prop_string(ctx, -1, DUX_TIMER_BUF);
+		timer = (dux_timer_t *)duk_get_buffer(ctx, -1, NULL);
+		duk_pop(ctx);
 
 		if ((timer->flags ^ flags) & DUX_TIMER_ONESHOT)
 		{
@@ -267,8 +272,10 @@ duk_uint_t dux_timer_tick(duk_context *ctx)
 
 		++processed;
 
-		/* [ ... arr bufobj ] */
-		timer = (dux_timer_t *)duk_get_buffer_data(ctx, -1, NULL);
+		/* [ ... arr obj(timer) ] */
+		duk_get_prop_string(ctx, -1, DUX_TIMER_BUF);
+		timer = (dux_timer_t *)duk_get_buffer(ctx, -1, NULL);
+		duk_pop(ctx);
 
 		if (timer->time_prev < timer->time_next)
 		{
@@ -304,11 +311,11 @@ duk_uint_t dux_timer_tick(duk_context *ctx)
 		}
 
 		/* Expires */
-		duk_get_prop_string(ctx, -1, "func");
-		/* [ ... arr bufobj func ] */
+		duk_get_prop_string(ctx, -1, DUX_TIMER_FUNC);
+		/* [ ... arr obj(timer) func ] */
 		if (duk_pcall(ctx, 0) != DUK_EXEC_SUCCESS)
 		{
-			/* [ ... arr bufobj err ] */
+			/* [ ... arr obj(timer) err ] */
 			top_level_error(ctx);
 		}
 		duk_pop_2(ctx);
