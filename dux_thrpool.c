@@ -454,7 +454,7 @@ void dux_thrpool_queue(duk_context *ctx,
 		void *pointer;
 		duk_size_t length;
 
-		duk_get_prop_index(ctx, -2, index);
+		duk_get_prop_index(ctx, -1, index);
 		/* [ ... obj(thrpool) ... job any ] */
 		if ((pointer = (void *)duk_get_lstring(ctx, -1, &length)) ||
 			(pointer = duk_get_buffer_data(ctx, -1, &length)))
