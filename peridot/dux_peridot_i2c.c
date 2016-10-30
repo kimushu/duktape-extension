@@ -101,6 +101,7 @@ static duk_ret_t i2c_constructor(duk_context *ctx)
 duk_int_t i2ccon_worker(const dux_thrpool_block_t *blocks, duk_size_t num_blocks)
 {
 	dux_i2ccon_peridot_t *data;
+	int result;
 
 	if (num_blocks != 5)
 	{
@@ -109,12 +110,24 @@ duk_int_t i2ccon_worker(const dux_thrpool_block_t *blocks, duk_size_t num_blocks
 
 	data = (dux_i2ccon_peridot_t *)blocks[0].pointer;
 
-	return peridot_i2c_master_transfer(
+	result = peridot_i2c_master_configure_pins(
+			data->driver,
+			data->pins.scl,
+			data->pins.sda,
+			0);
+	if (result < 0)
+	{
+		return result;
+	}
+
+	result = peridot_i2c_master_transfer(
 			data->driver,
 			data->common.slaveAddress,
 			data->clkdiv,
 			blocks[1].length, blocks[1].pointer,
 			blocks[2].length, blocks[2].pointer);
+
+	return result;
 }
 
 /*
@@ -136,8 +149,10 @@ duk_ret_t i2ccon_completer(duk_context *ctx)
 		}
 		duk_push_true(ctx);
 		/* [ job int func true ] */
-		duk_get_prop_index(ctx, -3, 2);	/* readbuf */
+		duk_get_prop_index(ctx, 0, 2);	/* readbuf */
+		/* [ job int func true buf ] */
 		duk_push_buffer_object(ctx, -1, 0, duk_get_length(ctx, -1), DUK_BUFOBJ_ARRAYBUFFER);
+		/* [ job int func true buf bufobj(ArrayBuffer) ] */
 		duk_remove(ctx, -2);
 		/* [ job int func true bufobj(ArrayBuffer) ] */
 		duk_call(ctx, 2);
@@ -260,8 +275,7 @@ static duk_ret_t i2c_connect_body(duk_context *ctx, i2c_pins_t *pins)
 		duk_pop(ctx);
 
 		if ((driver) &&
-			(driver->pfc_scl_pins & (1u << pins->scl)) &&
-			(driver->pfc_sda_pins & (1u << pins->sda)))
+			peridot_i2c_master_configure_pins(driver, pins->scl, pins->sda, 1) == 0)
 		{
 			data->driver = driver;
 			duk_put_prop_string(ctx, 0, DUX_I2C_POOL);
