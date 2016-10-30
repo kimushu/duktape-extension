@@ -396,7 +396,14 @@ void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk_uint_t max_t
 
 	/* Add to link list */
 	link = thrpool_get_link(ctx);
-	pool->prev_pool = link->tail;
+	if ((pool->prev_pool = link->tail) != NULL)
+	{
+		link->tail->next_pool = pool;
+	}
+	else
+	{
+		link->head = pool;
+	}
 	link->tail = pool;
 
 	for (tidx = 0; tidx < min_threads; ++tidx)
