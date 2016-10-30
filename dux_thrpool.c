@@ -553,10 +553,12 @@ duk_uint_t dux_thrpool_tick(duk_context *ctx)
 			duk_push_c_function(cb_ctx, job->completer, 2);
 			/* cb_ctx: [ obj func ] */
 			duk_push_pointer(cb_ctx, job);
-			duk_get_prop(cb_ctx, -2);
+			/* cb_ctx: [ obj func ptr ] */
+			duk_get_prop(cb_ctx, 0);
 			/* cb_ctx: [ obj func job ] */
 			duk_push_pointer(cb_ctx, job);
-			duk_del_prop(cb_ctx, -2);
+			/* cb_ctx: [ obj func job ptr ] */
+			duk_del_prop(cb_ctx, 0);
 			/* cb_ctx: [ obj func job ] */
 			duk_push_int(cb_ctx, job->result);
 			/* cb_ctx: [ obj func job int ] */
