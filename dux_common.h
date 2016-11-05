@@ -12,6 +12,14 @@ extern void dux_register_tick(duk_context *ctx, const char *key);
 extern void dux_queue_callback(duk_context *ctx);
 extern void dux_tick(duk_context *ctx);
 
+typedef struct dux_prop_list_entry
+{
+	const char *key;
+	duk_c_function getter;
+	duk_c_function setter;
+}
+dux_prop_list_entry;
+
 /*
  * Bind arguments (Function.bind(undefined, args...))
  *
@@ -62,6 +70,37 @@ void *dux_calloc_raw(duk_context *ctx, duk_size_t size)
 }
 
 /*
+ * Define multiple properties
+ */
+__inline__ static
+void dux_def_props(duk_context *ctx, duk_idx_t obj_index,
+		const dux_prop_list_entry *props)
+{
+	const char *key;
+	obj_index = duk_normalize_index(ctx, obj_index);
+	for (; (key = props->key) != NULL; ++props)
+	{
+		duk_uint_t flags = DUK_DEFPROP_SET_ENUMERABLE;
+		duk_c_function func;
+
+		duk_push_string(ctx, key);
+		func = props->getter;
+		if (func)
+		{
+			duk_push_c_function(ctx, func, 0);
+			flags |= DUK_DEFPROP_HAVE_GETTER;
+		}
+		func = props->setter;
+		if (func)
+		{
+			duk_push_c_function(ctx, func, 1);
+			flags |= DUK_DEFPROP_HAVE_SETTER | DUK_DEFPROP_SET_WRITABLE;
+		}
+		duk_def_prop(ctx, obj_index, flags);
+	}
+}
+
+/*
  * Push duk_c_function with name property
  */
 __inline__ static
@@ -84,17 +123,30 @@ duk_idx_t dux_push_named_c_constructor(
 		duk_context *ctx, const char *name,
 		duk_c_function func, duk_idx_t nargs,
 		const duk_function_list_entry *static_methods,
-		const duk_function_list_entry *prototype_methods)
+		const duk_function_list_entry *prototype_methods,
+		const dux_prop_list_entry *static_props,
+		const dux_prop_list_entry *prototype_props)
 {
 	duk_idx_t result = dux_push_named_c_function(ctx, name, func, nargs);
 	if (static_methods)
 	{
 		duk_put_function_list(ctx, -1, static_methods);
 	}
-	if (prototype_methods)
+	if (static_props)
+	{
+		dux_def_props(ctx, -1, static_props);
+	}
+	if (prototype_methods || prototype_props)
 	{
 		duk_push_object(ctx);
-		duk_put_function_list(ctx, -1, prototype_methods);
+		if (prototype_methods)
+		{
+			duk_put_function_list(ctx, -1, prototype_methods);
+		}
+		if (prototype_props)
+		{
+			dux_def_props(ctx, -1, prototype_props);
+		}
 		duk_put_prop_string(ctx, -2, "prototype");
 	}
 	return result;
