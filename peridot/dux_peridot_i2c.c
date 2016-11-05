@@ -17,6 +17,17 @@ static const char *const DUX_I2C_POOLS = "dux_i2c_peridot.pools";
 static const char *const DUX_I2C_DRIVER = "\xff" "dux_i2c_peridot.driver";
 static const char *const DUX_I2C_POOL = "\xff" "pool";
 
+enum
+{
+	I2C_BLKIDX_DATA = 0,
+	I2C_BLKIDX_CLKDIV,
+	I2C_BLKIDX_WRITEDATA,
+	I2C_BLKIDX_READDATA,
+	I2C_BLKIDX_CALLBACK,
+	I2C_BLKIDX_THIS,
+	I2C_NUM_BLOCKS,
+};
+
 typedef union i2c_pins_t
 {
 	duk_uint_t uint;
@@ -103,12 +114,12 @@ duk_int_t i2ccon_worker(const dux_thrpool_block_t *blocks, duk_size_t num_blocks
 	dux_i2ccon_peridot_t *data;
 	int result;
 
-	if (num_blocks != 5)
+	if (num_blocks != I2C_NUM_BLOCKS)
 	{
 		return -EBADF;
 	}
 
-	data = (dux_i2ccon_peridot_t *)blocks[0].pointer;
+	data = (dux_i2ccon_peridot_t *)blocks[I2C_BLKIDX_DATA].pointer;
 
 	result = peridot_i2c_master_configure_pins(
 			data->driver,
@@ -123,9 +134,11 @@ duk_int_t i2ccon_worker(const dux_thrpool_block_t *blocks, duk_size_t num_blocks
 	result = peridot_i2c_master_transfer(
 			data->driver,
 			data->common.slaveAddress,
-			data->clkdiv,
-			blocks[1].length, blocks[1].pointer,
-			blocks[2].length, blocks[2].pointer);
+			blocks[I2C_BLKIDX_CLKDIV].uint,
+			blocks[I2C_BLKIDX_WRITEDATA].length,
+			blocks[I2C_BLKIDX_WRITEDATA].pointer,
+			blocks[I2C_BLKIDX_READDATA].length,
+			blocks[I2C_BLKIDX_READDATA].pointer);
 
 	return result;
 }
@@ -187,9 +200,9 @@ duk_ret_t i2ccon_transfer(duk_context *ctx, dux_i2ccon_peridot_t *data, duk_uint
 	duk_push_array(ctx);
 	duk_swap_top(ctx, -3);
 	/* [ ... arr func val(writedata) ] */
-	duk_put_prop_index(ctx, -3, 1);	/* val(writedata) */
+	duk_put_prop_index(ctx, -3, I2C_BLKIDX_WRITEDATA);
 	/* [ ... arr func ] */
-	duk_put_prop_index(ctx, -2, 3);	/* func(callback) */
+	duk_put_prop_index(ctx, -2, I2C_BLKIDX_CALLBACK);
 	/* [ ... arr ] */
 	if (readlen > 0)
 	{
@@ -199,14 +212,17 @@ duk_ret_t i2ccon_transfer(duk_context *ctx, dux_i2ccon_peridot_t *data, duk_uint
 	{
 		duk_push_undefined(ctx);
 	}
-	duk_put_prop_index(ctx, -2, 2);	/* buf(readdata) */
+	duk_put_prop_index(ctx, -2, I2C_BLKIDX_READDATA);
 	/* [ ... arr ] */
 	duk_push_external_buffer(ctx);
 	duk_config_buffer(ctx, -1, data, sizeof(*data));
-	duk_put_prop_index(ctx, -2, 0);	/* buf(data) */
+	duk_put_prop_index(ctx, -2, I2C_BLKIDX_DATA);
+	/* [ ... arr ] */
+	duk_push_uint(ctx, data->clkdiv);
+	duk_put_prop_index(ctx, -2, I2C_BLKIDX_CLKDIV);
 	/* [ ... arr ] */
 	duk_push_this(ctx);
-	duk_put_prop_index(ctx, -2, 4);	/* this */
+	duk_put_prop_index(ctx, -2, I2C_BLKIDX_THIS);
 	/* [ ... arr ] */
 
 	duk_push_this(ctx);
@@ -218,6 +234,25 @@ duk_ret_t i2ccon_transfer(duk_context *ctx, dux_i2ccon_peridot_t *data, duk_uint
 	dux_thrpool_queue(ctx, -3, i2ccon_worker, i2ccon_completer);
 
 	return 0;	/* return undefined; */
+}
+
+/*
+ * Native implementation for bitrate change
+ */
+static duk_ret_t i2ccon_update_bitrate(duk_context *ctx, dux_i2ccon_peridot_t *data)
+{
+	duk_ret_t result;
+	alt_u32 clkdiv;
+
+	result = peridot_i2c_master_get_clkdiv(data->driver,
+				data->common.bitrate, &clkdiv);
+	if (result != 0)
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+
+	data->clkdiv = clkdiv;
+	return 0;
 }
 
 /*
@@ -258,6 +293,8 @@ static duk_ret_t i2c_connect_body(duk_context *ctx, i2c_pins_t *pins)
 
 	data->common.transfer =
 		(duk_ret_t (*)(duk_context *, dux_i2ccon_t *, duk_uint_t))i2ccon_transfer;
+	data->common.update_bitrate =
+		(duk_ret_t (*)(duk_context *, dux_i2ccon_t *))i2ccon_update_bitrate;
 	data->common.slaveAddress = slaveAddress;
 	data->common.bitrate = bitrate;
 	data->pins.uint = pins->uint;
@@ -298,11 +335,10 @@ static duk_ret_t i2c_connect_body(duk_context *ctx, i2c_pins_t *pins)
 		// never returns
 	}
 
-	result = peridot_i2c_master_get_clkdiv(data->driver,
-				data->common.bitrate, &data->clkdiv);
+	result = (*data->common.update_bitrate)(ctx, data);
 	if (result != 0)
 	{
-		return DUK_RET_RANGE_ERROR;
+		return result;
 	}
 
 	/* [ i2ccon ] */
@@ -402,7 +438,7 @@ void dux_peridot_i2c_init(duk_context *ctx, ...)
 
 	dux_push_named_c_constructor(
 			ctx, "PeridotI2C", i2c_constructor, 1,
-			i2c_funcs, i2c_proto_funcs);
+			i2c_funcs, i2c_proto_funcs, NULL, NULL);
 	/* [ ... obj(Peridot) func(PeridotI2C) ] */
 
 	duk_put_prop_string(ctx, -2, "I2C");

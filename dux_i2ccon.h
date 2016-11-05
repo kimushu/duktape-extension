@@ -10,6 +10,7 @@ extern "C" {
 typedef struct dux_i2ccon_t
 {
 	duk_ret_t (*transfer)(duk_context *ctx, struct dux_i2ccon_t *data, duk_uint_t readlen);
+	duk_ret_t (*update_bitrate)(duk_context *ctx, struct dux_i2ccon_t *data);
 	duk_uint_t slaveAddress;
 	duk_uint_t bitrate;
 }
