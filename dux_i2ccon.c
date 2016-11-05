@@ -160,6 +160,7 @@ static duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
 {
 	dux_i2ccon_t *data;
 	duk_uint_t old_bitrate;
+	duk_int_t new_bitrate;
 	duk_ret_t result;
 
 	duk_push_this(ctx);
@@ -168,7 +169,12 @@ static duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
 	/* [ ... this buf ] */
 	data = (dux_i2ccon_t *)duk_require_buffer(ctx, -1, NULL);
 	old_bitrate = data->bitrate;
-	data->bitrate = duk_get_uint(ctx, 0);
+	new_bitrate = duk_require_int(ctx, 0);
+	if (new_bitrate < 0)
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+	data->bitrate = new_bitrate;
 	result = (*data->update_bitrate)(ctx, data);
 	if (result != 0)
 	{
