@@ -235,7 +235,7 @@ void dux_push_i2ccon_class(duk_context *ctx)
 	duk_push_heap_stash(ctx);
 	/* [ ... stash ] */
 	duk_get_prop_string(ctx, -1, DUX_I2CCON_CLASS);
-	/* [ ... stash func ] */
+	/* [ ... stash constructor ] */
 	duk_remove(ctx, -2);
 	/* [ ... func ] */
 }
