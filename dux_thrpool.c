@@ -458,20 +458,26 @@ void dux_thrpool_queue(duk_context *ctx,
 	block = &job->blocks[0];
 	for (index = 0; index < num_blocks; ++index, ++block)
 	{
-		void *pointer;
-		duk_size_t length;
+		dux_thrpool_block_t blk;
 
 		duk_get_prop_index(ctx, -1, index);
 		/* [ ... obj(thrpool) ... job any ] */
-		if ((pointer = (void *)duk_get_lstring(ctx, -1, &length)) ||
-			(pointer = duk_get_buffer_data(ctx, -1, &length)))
+		if ((blk.pointer = (void *)duk_get_lstring(ctx, -1, &blk.length)) ||
+			(blk.pointer = duk_get_buffer_data(ctx, -1, &blk.length)))
 		{
 			// string / plain buffer / Buffer object
-			block->pointer = pointer;
-			block->length = length;
+			block->pointer = blk.pointer;
+			block->length = blk.length;
+		}
+		else if (duk_is_number(ctx, -1))
+		{
+			// uint
+			block->uint = duk_get_uint(ctx, -1);
+			block->length = 0;
 		}
 		else
 		{
+			// others
 			block->pointer = NULL;
 			block->length = 0;
 		}

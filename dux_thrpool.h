@@ -9,7 +9,11 @@ extern "C" {
 
 typedef struct dux_thrpool_block_t
 {
-	void *pointer;
+	union
+	{
+		void *pointer;
+		duk_uint_t uint;
+	};
 	duk_size_t length;
 }
 dux_thrpool_block_t;
