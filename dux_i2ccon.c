@@ -177,6 +177,24 @@ static duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
 	return 0;	/* return undefined; */
 }
 
+/*
+ * C function entry of getter for I2CConnection.prototype.slaveAddress
+ * ()
+ */
+static duk_ret_t i2ccon_proto_slaveAddress_getter(duk_context *ctx)
+{
+	dux_i2ccon_t *data;
+
+	duk_push_this(ctx);
+	/* [ ... this ] */
+	duk_get_prop_string(ctx, -1, DUX_I2CCON_BUF);
+	/* [ ... this buf ] */
+	data = (dux_i2ccon_t *)duk_require_buffer(ctx, -1, NULL);
+	duk_push_uint(ctx, data->slaveAddress);
+	/* [ ... this buf uint ] */
+	return 1;	/* return uint; */
+}
+
 static const duk_function_list_entry i2ccon_proto_funcs[] = {
 	{ "read", i2ccon_proto_read, 2 },
 	{ "transfer", i2ccon_proto_transfer, 3 },
@@ -186,6 +204,7 @@ static const duk_function_list_entry i2ccon_proto_funcs[] = {
 
 static const dux_prop_list_entry i2ccon_proto_props[] = {
 	{ "bitrate", i2ccon_proto_bitrate_getter, i2ccon_proto_bitrate_setter },
+	{ "slaveAddress", i2ccon_proto_slaveAddress_getter, NULL },
 	{ NULL, NULL, NULL },
 };
 
