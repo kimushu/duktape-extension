@@ -150,7 +150,7 @@ duk_ret_t i2ccon_completer(duk_context *ctx)
 {
 	/* [ job int ] */
 	duk_int_t ret = duk_require_int(ctx, 1);
-	duk_get_prop_index(ctx, 0, 3);
+	duk_get_prop_index(ctx, 0, I2C_BLKIDX_CALLBACK);
 	/* [ job int func ] */
 
 	if (ret == 0)
@@ -176,7 +176,7 @@ duk_ret_t i2ccon_completer(duk_context *ctx)
 		// Failed
 		duk_push_false(ctx);
 		/* [ job int func false ] */
-		duk_push_error_object(ctx, DUK_ERR_API_ERROR, "I2C transfer failed");
+		duk_push_error_object(ctx, DUK_ERR_API_ERROR, "I2C transfer failed (%d)", ret);
 		/* [ job int func false err ] */
 		if (duk_is_callable(ctx, -3))
 		{
@@ -392,6 +392,10 @@ static duk_function_list_entry i2c_proto_funcs[] = {
 
 /*
  * Initialize I2C instances
+ *
+ * i2c = new Peridot.I2C({pins});
+ * con = Peridot.I2C.connect({pins}, slave);
+ * con = i2c.connect(slave)
  */
 void dux_peridot_i2c_init(duk_context *ctx, ...)
 {
