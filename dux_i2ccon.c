@@ -209,7 +209,7 @@ static const duk_function_list_entry i2ccon_proto_funcs[] = {
 	{ NULL, NULL, 0 }
 };
 
-static const dux_prop_list_entry i2ccon_proto_props[] = {
+static const dux_property_list_entry i2ccon_proto_props[] = {
 	{ "bitrate", i2ccon_proto_bitrate_getter, i2ccon_proto_bitrate_setter },
 	{ "slaveAddress", i2ccon_proto_slaveAddress_getter, NULL },
 	{ NULL, NULL, NULL },
@@ -243,6 +243,6 @@ void dux_push_i2ccon_class(duk_context *ctx)
 	duk_get_prop_string(ctx, -1, DUX_I2CCON_CLASS);
 	/* [ ... stash constructor ] */
 	duk_remove(ctx, -2);
-	/* [ ... func ] */
+	/* [ ... constructor ] */
 }
 
