@@ -51,7 +51,11 @@ duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, const char *key
 	duk_int_t pin;
 	const char *str;
 
-	if (!duk_get_prop_string(ctx, index, key))
+	if (!key)
+	{
+		duk_dup(ctx, index);
+	}
+	else if (!duk_get_prop_string(ctx, index, key))
 	{
 		duk_pop(ctx);
 		char *ukey = alloca(strlen(key) + 1);
