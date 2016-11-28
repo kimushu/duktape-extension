@@ -1,16 +1,26 @@
-#ifndef DUX_COMMON_H_
-#define DUX_COMMON_H_
+#ifndef DUX_BASIS_H_INCLUDED
+#define DUX_BASIS_H_INCLUDED
 
-#include "duktape.h"
-#include <string.h>
+/*
+ * Macros
+ */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define DUX_IPK(t)	("\377d" t)
 
-extern void dux_register_tick(duk_context *ctx, const char *key);
-extern void dux_queue_callback(duk_context *ctx);
-extern void dux_tick(duk_context *ctx);
+/*
+ * Constants
+ */
+
+enum
+{
+	DUX_TICK_RET_JOBLESS  = 0,
+	DUX_TICK_RET_CONTINUE = 1,
+	DUX_TICK_RET_ABORT    = 2,
+};
+
+/*
+ * Structures
+ */
 
 typedef struct dux_property_list_entry
 {
@@ -21,12 +31,15 @@ typedef struct dux_property_list_entry
 dux_property_list_entry;
 
 /*
+ * Function definitions
+ */
+
+/*
  * Bind arguments (Function.bind(undefined, args...))
  *
  * [ func arg1 ... argN ]  ->  [ bound_func ]
  */
-__inline__ static
-void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
+DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 {
 	/* [ ... func ] */
 	duk_push_string(ctx, "bind");
@@ -42,38 +55,9 @@ void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 }
 
 /*
- * Allocate and clear memory (may call GC)
- */
-__inline__ static
-void *dux_calloc(duk_context *ctx, duk_size_t size)
-{
-	void *ptr = duk_alloc(ctx, size);
-	if (ptr)
-	{
-		memset(ptr, 0, size);
-	}
-	return ptr;
-}
-
-/*
- * Allocate and clear memory (never call GC)
- */
-__inline__ static
-void *dux_calloc_raw(duk_context *ctx, duk_size_t size)
-{
-	void *ptr = duk_alloc_raw(ctx, size);
-	if (ptr)
-	{
-		memset(ptr, 0, size);
-	}
-	return ptr;
-}
-
-/*
  * Define multiple properties
  */
-__inline__ static
-void dux_put_property_list(duk_context *ctx, duk_idx_t obj_index,
+DUK_INLINE void dux_put_property_list(duk_context *ctx, duk_idx_t obj_index,
 		const dux_property_list_entry *props)
 {
 	const char *key;
@@ -103,8 +87,7 @@ void dux_put_property_list(duk_context *ctx, duk_idx_t obj_index,
 /*
  * Push duk_c_function with name property
  */
-__inline__ static
-duk_idx_t dux_push_named_c_function(
+DUK_INLINE duk_idx_t dux_push_named_c_function(
 		duk_context *ctx, const char *name,
 		duk_c_function func, duk_idx_t nargs)
 {
@@ -118,8 +101,7 @@ duk_idx_t dux_push_named_c_function(
 /*
  * Push duk_c_function with name property and methods
  */
-__inline__ static
-duk_idx_t dux_push_named_c_constructor(
+DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 		duk_context *ctx, const char *name,
 		duk_c_function func, duk_idx_t nargs,
 		const duk_function_list_entry *static_funcs,
@@ -152,18 +134,4 @@ duk_idx_t dux_push_named_c_constructor(
 	return result;
 }
 
-/*
- * Unregister tick handler
- */
-__inline__ static
-void dux_unregister_rick(duk_context *ctx, const char *key)
-{
-	duk_push_undefined(ctx);
-	dux_register_tick(ctx, key);
-}
-
-#ifdef __cplusplus
-}	/* extern "C" */
-#endif
-
-#endif /* DUX_COMMON_H_ */
+#endif  /* DUX_BASIS_H_INCLUDED */

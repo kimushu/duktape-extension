@@ -1,16 +1,10 @@
-#ifndef DUX_UTIL_H_
-#define DUX_UTIL_H_
+#ifndef DUX_UTIL_H_INCLUDED
+#define DUX_UTIL_H_INCLUDED
 
-#include "duktape.h"
+/*
+ * Functions
+ */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+DUK_INTERNAL_DECL duk_errcode_t dux_util_init(duk_context *ctx);
 
-extern void dux_util_init(duk_context *ctx);
-
-#ifdef __cplusplus
-}	/* extern "C" */
-#endif
-
-#endif /* DUX_UTIL_H_ */
+#endif  /* DUX_UTIL_H_INCLUDED */

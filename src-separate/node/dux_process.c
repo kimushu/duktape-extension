@@ -1,61 +1,84 @@
-#include "dux_process.h"
-#include "dux_common.h"
-#include "dux_private.h"
-#include <unistd.h>
+/*
+ * ECMA class methods:
+ *    process.exit([exitCode])
+ *    process.nextTick(function [, arg1, ..., argN])
+ *
+ * ECMA class properties:
+ *    process.arch
+ *    process.exitCode
+ *
+ * Internal data structure:
+ *    heap_stash[DUX_IPK_PROCESS] = global.process = process;
+ *    process[DUX_IPK_PROCESS_DATA] = new PlainBuffer(dux_process_data);
+ *    process[DUX_IPK_PROCESS_THREAD] = new Duktape.Thread;
+ */
+#include "../dux_internal.h"
 
-static const char* const DUX_IPK_EXITCODE = "\xff" "kEc";
+DUK_LOCAL const char DUX_IPK_PROCESS          = DUX_IPK("Process");
+DUK_LOCAL const char DUX_IPK_PROCESS_DATA[]   = DUX_IPK("pData");
+DUK_LOCAL const char DUX_IPK_PROCESS_THREAD[] = DUX_IPK("pThr");
 
 /*
- * C function entry of process.exit
+ * Entry of process.exit()
  */
-static duk_ret_t process_exit(duk_context *ctx)
+DUK_LOCAL duk_ret_t process_exit(duk_context *ctx)
 {
+	dux_process_data *data;
+
 	/* [ int/undefined ] */
 	duk_push_this(ctx);
-	/* [ int/undefined this ] */
-	duk_push_int(ctx, duk_get_int(ctx, 0));
-	/* [ int/undefined this int ] */
-	if (!duk_has_prop_string(ctx, 1, DUX_IPK_EXITCODE))
-	{
-		duk_put_prop_string(ctx, 1, DUX_IPK_EXITCODE);
-	}
-	return 0;	/* return undefined; */
+	/* [ int/undefined process ] */
+	duk_get_prop_string(ctx, 1, DUX_IPK_PROCESS_DATA);
+	/* [ int/undefined process buf ] */
+	data = (dux_process_data *)duk_require_buffer(ctx, 2, NULL);
+	data->exit_code = duk_get_int(ctx, 0);
+	data->exit_valid = 1;
+	data->force_exit = 1;
+	return 0; /* return undefined */
 }
 
 /*
- * C function entry of process.nextTick
+ * Entry of process.nextTick()
  */
-static duk_ret_t process_nexttick(duk_context *ctx)
+DUK_LOCAL duk_ret_t process_nextTick(duk_context *ctx)
 {
+	duk_idx_t nargs;
+	dux_process_data *data;
+
 	/* [ func arg1 ... argN ] */
-	duk_idx_t bind_nargs;
-
 	duk_require_callable(ctx, 0);
-	bind_nargs = duk_get_top(ctx);
+	nargs = duk_get_top(ctx) - 1;
 
-	if (nargs > 1)
+	if (nargs > 0)
 	{
-		duk_push_string(ctx, "bind");
-		duk_insert(ctx, 1);
-		/* [ func "bind" arg1 ... argN ] */
-		duk_push_undefined(ctx);
-		duk_insert(ctx, 2);
-		/* [ func "bind" undefined arg1 ... argN ] */
-		duk_call_prop(ctx, bind_nargs);
-		/* [ func bound_func ] */
+		dux_bind_arguments(ctx, nargs);
+		/* [ bound_func ] */
 	}
-	else
+	/* [ func ] */
+
+	duk_push_this(ctx);
+	/* [ func process ] */
+	duk_get_prop_string(ctx, 1, DUX_IPK_PROCESS_DATA);
+	/* [ func process buf ] */
+	data = (dux_process_data *)duk_require_buffer(ctx, 2, NULL);
+	duk_swap(ctx, 0, 2);
+	/* [ buf process func ] */
+	if (!data->tick_context)
 	{
-		/* [ func ] */
+		duk_push_thread(ctx);
+		/* [ buf process func thr ] */
+		data->tick_context = duk_get_context(ctx, 3);
+		duk_put_prop_string(ctx, 1, DUX_IPK_PROCESS_THREAD);
+		/* [ buf process func ] */
 	}
-	dux_process_register_tick(ctx);
-	return 0;	/* return undefined; */
+	duk_xmove_top(data->tick_context, ctx, 1);
+	return 0; /* return undefined */
 }
 
 /*
- * C function entry of getter for process.arch
+ * Getter of process.arch
  */
-static duk_ret_t process_arch_getter(duk_context *ctx)
+DUK_LOCAL duk_ret_t process_arch_getter(duk_context *ctx)
 {
 #if defined(__x86_64__)
 	duk_push_string(ctx, "x64");
@@ -68,9 +91,49 @@ static duk_ret_t process_arch_getter(duk_context *ctx)
 #else
 	duk_push_string(ctx, "unknown");
 #endif
-	return 1;	/* return string; */
+	return 1; /* return string */
 }
 
+/*
+ * Getter of process.exitCode
+ */
+DUK_LOCAL duk_ret_t process_exitCode_getter(duk_context *ctx)
+{
+	dux_process_data *data;
+
+	/* [  ] */
+	duk_push_this(ctx);
+	/* [ process ] */
+	duk_get_prop_string(ctx, 0, DUX_IPK_PROCESS_DATA);
+	/* [ process buf ] */
+	data = (dux_process_data *)duk_require_buffer(ctx, 1, NULL);
+	if (!data->exit_valid)
+	{
+		return 0; /* return undefined */
+	}
+	duk_push_int(ctx, data->exit_code);
+	return 1; /* return int */
+}
+
+/*
+ * Setter of process.exitCode
+ */
+DUK_LOCAL duk_ret_t process_exitCode_setter(duk_context *ctx)
+{
+	dux_process_data *data;
+
+	/* [ int ] */
+	duk_push_this(ctx);
+	/* [ int process ] */
+	duk_get_prop_string(ctx, 1, DUX_IPK_PROCESS_DATA);
+	/* [ int process buf ] */
+	data = (dux_process_data *)duk_require_buffer(ctx, 2, NULL);
+	data->exit_code = duk_get_int(ctx, 0);
+	data->exit_valid = 1;
+	return 0; /* return undefined */
+}
+
+#if 0
 /*
  * C function entry of getter for process.stderr
  */
@@ -139,173 +202,136 @@ static duk_ret_t process_stdout_getter(duk_context *ctx)
 	/* [ retval ] */
 	return 1;	/* return retval; */
 }
+#endif
 
-static duk_function_list_entry process_funcs[] = {
+/*
+ * Getter of process.version
+ */
+DUK_LOCAL duk_ret_t process_version_getter(duk_context *ctx)
+{
+	/* [  ] */
+	duk_push_string(ctx, DUX_VERSION_STRING);
+	/* [ string ] */
+	return 1; /* return string */
+}
+
+/*
+ * List of methods for Process object
+ */
+DUK_LOCAL duk_function_list_entry process_funcs[] = {
 	{ "exit", process_exit, 1 },
-	{ "nextTick", process_nexttick, DUK_VARARGS },
+	{ "nextTick", process_nextTick, DUK_VARARGS },
 	{ NULL, NULL, 0 }
 };
 
-static dux_property_list_entry process_props[] = {
+/*
+ * List of properties for Process object
+ */
+DUK_LOCAL dux_property_list_entry process_props[] = {
 	{ "arch", process_arch_getter, NULL },
-	{ "stderr", process_stderr_getter, NULL },
-	{ "stdin", process_stdin_getter, NULL },
-	{ "stdout", process_stdout_getter, NULL },
+	{ "exitCode", process_exitCode_getter, process_exitCode_setter },
+//	{ "stderr", process_stderr_getter, NULL },
+//	{ "stdin", process_stdin_getter, NULL },
+//	{ "stdout", process_stdout_getter, NULL },
+	{ "version", process_version_getter, NULL },
 	{ NULL, NULL, NULL }
 };
 
 /*
- * Initialize Process object
+ * Initialize Process module
  */
-void dux_process_init(duk_context *ctx)
+DUK_INTERNAL duk_errcode_t dux_process_init(duk_context *ctx, dux_process_context *mctx)
 {
+	dux_process_data *data;
+
 	/* [ ... ] */
 	duk_push_heap_stash(ctx);
 	/* [ ... stash ] */
-	if (!duk_get_prop_string(ctx, -1, DUX_INTRINSIC_PROCESS))
+	duk_push_global_object(ctx);
+	/* [ ... stash global ] */
+	duk_push_object(ctx);
+	/* [ ... stash global obj ] */
+	duk_put_function_list(ctx, -1, process_funcs);
+	dux_put_property_list(ctx, -1, process_props);
+	duk_push_fixed_buffer(ctx, sizeof(dux_process_data));
+	/* [ ... stash global obj buf ] */
+	data = (dux_process_data *)duk_get_buffer(ctx, -1, NULL);
+	if (!data)
 	{
-		/* [ ... stash undefined ] */
-		duk_push_object(ctx);
-		duk_copy(ctx, -1, -2);
-		/* [ ... stash obj obj ] */
-		duk_put_function_list(ctx, -1, process_funcs);
-		dux_put_property_list(ctx, -1, process_props);
-		duk_put_prop_string(ctx, -2, DUX_INTRINSIC_PROCESS);
-		/* [ ... stash obj ] */
+		duk_pop_n(ctx, 4);
+		return DUK_ERR_ALLOC_ERROR;
 	}
-	/* [ ... stash obj ] */
-	duk_put_global_string(ctx, "process");
-	/* [ ... stash ] */
-	duk_pop(ctx);
+	memset(data, 0, sizeof(dux_process_data));
+	duk_put_prop_string(ctx, -1, DUX_IPK_PROCESS_DATA);
+	/* [ ... stash global process ] */
+	duk_dup_top(ctx);
+	/* [ ... stash global process process ] */
+	duk_put_prop_string(ctx, -3, "process");
+	/* [ ... stash global process ] */
+	duk_put_prop_string(ctx, -3, DUX_IPK_PROCESS);
+	/* [ ... stash global ] */
+	duk_pop_2(ctx);
 	/* [ ... ] */
+	return DUK_ERR_NONE;
 }
 
 /*
- * Get exit code
+ * Tick handler for Process module
  */
-duk_bool_t dux_process_is_exit(duk_context *ctx, duk_int_t *code)
+DUK_INTERNAL duk_int_t dux_process_tick(duk_context *ctx)
 {
-	/* [ ... ] */
-	duk_bool_t result = 0;
-
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
-	if (duk_get_prop_string(ctx, -1, DUX_INTRINSIC_PROCESS))
-	{
-		/* [ ... stash obj ] */
-		if (duk_get_prop_string(ctx, -1, DUX_IPK_EXITCODE))
-		{
-			/* [ ... stash obj int ] */
-			if (code)
-			{
-				*code = duk_get_int(ctx, -1);
-			}
-			result = 1;
-		}
-		/* [ ... stash obj int/undefined ] */
-		duk_pop_3(ctx);
-		/* [ ... ] */
-	}
-	else
-	{
-		duk_pop_2(ctx);
-		/* [ ... ] */
-	}
-
-	return result;
-}
-
-/*
- * Register next tick handler
- */
-duk_bool_t dux_process_register_tick(duk_context *ctx)
-{
-	/* [ ... func ] */
-	duk_context *sub_ctx;
-	duk_push_heap_stash(ctx);
-	/* [ ... func stash ] */
-	if (!duk_get_prop_string(ctx, -1, DUX_INTRINSIC_PROCESS))
-	{
-		/* [ ... func stash undefined ] */
-		duk_pop_3(ctx);
-		return 0;
-	}
-	/* [ ... func stash obj ] */
-	if (!duk_get_prop_string(ctx, -1, IPK_NEXT_TICK))
-	{
-		/* [ ... func stash obj undefined ] */
-		duk_push_thread(ctx);
-		duk_copy(ctx, -1, -2);
-		/* [ ... func stash obj thr thr ] */
-		duk_put_prop_string(ctx, -3, IPK_NEXT_TICK);
-		/* [ ... func stash obj thr ] */
-	}
-	/* [ ... func stash obj thr ] */
-	sub_ctx = duk_require_context(ctx, -1);
-	duk_pop_3(ctx);
-	/* [ ... func ] */
-	duk_xmove_top(sub_ctx, ctx, 1);
-	/* sub: [ func1 ... funcN ] */
-	/* [ ... func ] */
-	return 1;
-}
-
-/*
- * Tick handler
- */
-duk_uint_t dux_process_tick(duk_context *ctx)
-{
-	/* [ ... ] */
-	duk_context *sub_ctx;
+	duk_context *tctx;
 	duk_idx_t index;
-	duk_idx_t items;
+	duk_idx_t nfuncs;
+	duk_bool_t force;
 
+	/* [ ... ] */
 	duk_push_heap_stash(ctx);
 	/* [ ... stash ] */
-	if (!duk_get_prop_string(ctx, DUX_INTRINSIC_PROCESS))
+	if (!duk_get_prop_string(ctx, -1, DUX_IPK_PROCESS))
 	{
 		/* [ ... stash undefined ] */
 		duk_pop_2(ctx);
-		/* [ ... ] */
-		return 0;
+		return DUX_TICK_RET_JOBLESS;
 	}
-	duk_remove(ctx, -2);
-	/* [ ... obj ] */
-	if (!duk_get_prop_string(ctx, IPK_NEXT_TICK))
+	/* [ ... stash process ] */
+	duk_get_prop_string(ctx, -1, DUX_IPK_PROCESS_DATA);
+	/* [ ... stash process buf ] */
+	data = (dux_process_data *)duk_get_buffer(ctx, -1, NULL);
+	if (!data)
 	{
-		/* [ ... obj undefined ] */
-		duk_pop_2(ctx);
+		duk_pop_3(ctx);
 		/* [ ... ] */
-		return 0;
+		return DUX_TICK_RET_JOBLESS;
 	}
-	/* [ ... obj thr] */
-	duk_push_thread(ctx);
-	/* [ ... obj thr new_thr ] */
-	duk_put_prop_string(ctx, -3, IPK_NEXT_TICK);
-	/* [ ... obj thr ] */
-	duk_remove(ctx, -2);
-	/* [ ... thr ] */
-	sub_ctx = duk_require_context(ctx, -1);
-	/* sub: [ func1 ... funcN ] */
-	items = duk_get_top(sub_ctx);
-	for (index = 0; index < items; ++index)
+	tctx = data->tick_context;
+	if (!tctx)
 	{
-		duk_dup(sub_ctx, index);
-		/* sub: [ func1 ... funcN funcI ] */
-		if (duk_pcall(sub_ctx, 0) != 0)
-		{
-			/* sub: [ func1 ... funcN err ] */
-			top_level_error(sub_ctx);
-		}
-		else
-		{
-			/* sub: [ func1 ... funcN retval ] */
-		}
-		duk_pop(sub_ctx);
-		/* sub: [ func1 ... funcN ] */
+		duk_pop_3(ctx);
+		/* [ ... ] */
+		return data->force_exit ? DUX_TICK_RET_ABORT : DUX_TICK_RET_JOBLESS;
 	}
+
+	duk_get_prop_string(ctx, -2, DUX_IPK_PROCESS_THREAD);
+	/* [ ... stash process buf thr ] */
+	data->tick_context = NULL;
+	nfuncs = duk_get_top(tctx);
+	for (index = 0; (!(force = data->force_exit)) && (index < nfuncs); ++index)
+	{
+		duk_dup(tctx, index);
+		/* tctx [ func1 ... funcN funcI ] */
+		if (duk_pcall(tctx, 0) != DUK_EXEC_SUCCESS)
+		{
+			/* tctx [ func1 ... funcN err ] */
+			dux_report_error(tctx);
+		}
+		/* tctx [ func1 ... funcN retval/err ] */
+		duk_pop(tctx);
+		/* tctx [ func1 ... funcN ] */
+	}
+	/* [ ... stash process buf thr ] */
+	duk_pop_n(ctx, 4);
 	/* [ ... ] */
-	duk_pop(ctx);
-	return items;
+	return force ? DUX_TICK_RET_ABORT : DUX_TICK_RET_CONTINUE;
 }
 

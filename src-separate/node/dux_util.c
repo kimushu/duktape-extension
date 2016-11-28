@@ -1,24 +1,33 @@
-#include "dux_util.h"
-#include "dux_private.h"
+/*
+ * ECMA class methods:
+ *    util.format(format [, arg1, ... argN])
+ *
+ * Internal data structure:
+ *    global.util = util;
+ */
+#include "../dux_internal.h"
 
-static duk_ret_t util_format(duk_context *ctx)
+/*
+ * Entry of util.format()
+ */
+DUK_LOCAL duk_ret_t util_format(duk_context *ctx)
 {
 	/* [ val ... ] */
 	duk_idx_t nargs = duk_get_top(ctx);
 	duk_idx_t arg = 1;
+	duk_idx_t cat = 0;
 	const char *format;
 	const char *end;
 	char ch;
 
 	if (nargs == 0)
 	{
-		duk_push_string("");
-		return 1;
+		duk_push_string(ctx, "");
+		return 1; /* return string */
 	}
 
 	format = duk_safe_to_string(ctx, 0);
-	duk_push_string(ctx, "");
-	/* [ ToString(val) ... string ] */
+	/* [ ToString(val) ... ] */
 
 	for (;;)
 	{
@@ -26,7 +35,7 @@ static duk_ret_t util_format(duk_context *ctx)
 		if (end != format)
 		{
 			duk_push_lstring(ctx, format, end - format);
-			duk_concat(ctx, 2);
+			++cat;
 		}
 		if (ch == '\0')
 		{
@@ -39,6 +48,7 @@ static duk_ret_t util_format(duk_context *ctx)
 			/* fall through */
 		case '\0':
 			duk_push_string(ctx, "%");
+			++cat;
 			format = end + 1;
 			break;
 		case 's':
@@ -52,26 +62,40 @@ static duk_ret_t util_format(duk_context *ctx)
 			{
 				duk_push_undefined(ctx);
 			}
+			++cat;
 			format = end + 2;
 			break;
 		default:
 			duk_push_lstring(ctx, end, 2);
+			++cat;
 			format = end + 2;
 			break;
 		}
-		duk_concat(ctx, 2);
 	}
 
-	return 1;	/* return string; */
+	if (cat == 0)
+	{
+		duk_push_string(ctx, "");
+		return 1; /* return string */
+	}
+
+	duk_concat(ctx, cat);
+	return 1; /* return string */
 }
 
-static duk_ret_t util_inspect(duk_context *ctx)
+/*
+ * Entry of util.inspect()
+ */
+DUK_LOCAL duk_ret_t util_inspect(duk_context *ctx)
 {
 	/* TODO */
 	return DUK_RET_UNSUPPORTED_ERROR;
 }
 
-static duk_function_list_entry util_funcs[] = {
+/*
+ * List of methods for Util object
+ */
+DUK_LOCAL duk_function_list_entry util_funcs[] = {
 	// debuglog
 	// deprecate
 	{ "format", util_format, DUK_VARARGS },
@@ -80,26 +104,19 @@ static duk_function_list_entry util_funcs[] = {
 	{ NULL, NULL, 0 }
 };
 
-void dux_util_init(duk_context *ctx)
+DUK_INTERNAL duk_errcode_t dux_util_init(duk_context *ctx, dux_context_util *xctx)
 {
 	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
-	if (!duk_get_prop_string(ctx, -1, DUX_INTRINSIC_UTIL))
-	{
-		/* [ ... stash undefined ] */
-		duk_pop(ctx);
-		duk_push_object(ctx);
-		duk_dup_top(ctx);
-		/* [ ... stash obj obj ] */
-		duk_put_function_list(ctx, -1, util_funcs);
-		duk_put_prop_string(ctx, -3, DUX_INTRINSIC_UTIL);
-		/* [ ... stash obj ] */
-	}
-	/* [ ... stash obj ] */
-	duk_put_global_string(ctx, "util");
-	/* [ ... stash ] */
+	duk_push_global_object(ctx);
+	/* [ ... global ] */
+	duk_push_object(ctx);
+	/* [ ... global obj ] */
+	duk_put_function_list(ctx, -1, util_funcs);
+	/* [ ... global util ] */
+	duk_put_prop_string(ctx, -2, "util");
+	/* [ ... global ] */
 	duk_pop(ctx);
 	/* [ ... ] */
+	return DUK_ERR_NONE;
 }
 

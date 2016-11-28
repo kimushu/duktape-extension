@@ -1,13 +1,20 @@
-#ifndef DUX_TIMER_H_
-#define DUX_TIMER_H_
+#ifndef DUX_TIMER_H_INCLUDED
+#define DUX_TIMER_H_INCLUDED
 
-#include "duktape.h"
+/*
+ * Constants
+ */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+enum
+{
+	DUX_TIMER_ONESHOT = (1 << 0),
+};
 
-typedef struct dux_timer_t
+/*
+ * Structures
+ */
+
+typedef struct dux_timer_desc
 {
 	duk_uint_t id;
 	duk_uint_t flags;
@@ -17,18 +24,13 @@ typedef struct dux_timer_t
 	duk_uint_t time_prev;
 	duk_uint_t time_next;
 }
-dux_timer_t;
+dux_timer_desc;
 
-enum
-{
-	DUX_TIMER_ONESHOT = (1 << 0),
-};
+/*
+ * Functions
+ */
 
-extern void dux_timer_init(duk_context *ctx);
-extern duk_uint_t dux_timer_tick(duk_context *ctx);
+DUK_INTERNAL_DECL duk_errcode_t dux_timer_init(duk_context *ctx);
+DUK_INTERNAL_DECL duk_int_t dux_timer_tick(duk_context *ctx);
 
-#ifdef __cplusplus
-}	/* extern "C" */
-#endif
-
-#endif /* DUX_TIMER_H_ */
+#endif /* DUX_TIMER_H_INCLUDED */
