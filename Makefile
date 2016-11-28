@@ -5,13 +5,13 @@ COMBINE = python tools/combine_src.py
 TARGETS = $(addprefix $(DESTDIR)/dux_all.,c h)
 SOURCES = $(addprefix $(SRCDIR)/,\
 	dux_basis.c \
-	dux_timer.c \
-	altera_hal/dux_timer_alt.c \
-	linux/dux_timer_linux.c \
 	dux_thrpool.c \
 	node/dux_process.c \
 	node/dux_util.c \
 	node/dux_console.c \
+	node/dux_timer.c \
+	altera_hal/dux_timer_alt.c \
+	linux/dux_timer_linux.c \
 	)
 PREAMBLE = $(SRCDIR)/dux_preamble.h
 DEP = .dux_all.dep

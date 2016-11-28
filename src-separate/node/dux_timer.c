@@ -20,7 +20,7 @@
  */
 
 #if !defined(DUX_OPT_NO_TIMER)
-#include "dux_internal.h"
+#include "../dux_internal.h"
 
 DUK_LOCAL const char DUX_IPK_TIMER[] = DUX_IPK("Timer");
 
