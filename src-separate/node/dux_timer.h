@@ -1,7 +1,7 @@
 #ifndef DUX_TIMER_H_INCLUDED
 #define DUX_TIMER_H_INCLUDED
 
-#if !defined(DUX_OPT_NO_TIMER)
+#if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_TIMER)
 
 /*
  * Constants
@@ -37,10 +37,10 @@ DUK_INTERNAL_DECL duk_int_t dux_timer_tick(duk_context *ctx);
 
 DUK_INTERNAL_DECL duk_uint_t dux_timer_current(void);
 
-#else   /* !DUX_OPT_NO_TIMER */
+#else   /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_TIMER */
 
 #define dux_timer_init(ctx) (DUK_ERR_NONE)
 #define dux_timer_tick(ctx) (DUX_TICK_RET_JOBLESS)
 
-#endif  /* DUX_OPT_NO_TIMER */
+#endif  /* DUX_OPT_NO_NODEJS_MODULES || DUX_OPT_NO_TIMER */
 #endif  /* !DUX_TIMER_H_INCLUDED */

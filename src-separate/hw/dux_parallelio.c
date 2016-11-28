@@ -30,15 +30,15 @@
  *      [DUX_IPK_PARALLELIO_LINK]: <PlainBuffer dux_parallelio_data>
  *    };
  */
-#if !defined(DUX_OPT_NO_PARALLELIO)
-#include "dux_internal.h"
+#if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_PARALLELIO)
+#include "../dux_internal.h"
 
 /*
  * Constants
  */
 
-DUK_LOCAL const char DUX_IPK_PARALLELIO_DATA = DUX_IPK("piData");
-DUK_LOCAL const char DUX_IPK_PARALLELIO_LINK = DUX_IPK("piLink");
+DUK_LOCAL const char DUX_IPK_PARALLELIO_DATA[] = DUX_IPK("piData");
+DUK_LOCAL const char DUX_IPK_PARALLELIO_LINK[] = DUX_IPK("piLink");
 
 /*
  * Structures
@@ -47,7 +47,7 @@ DUK_LOCAL const char DUX_IPK_PARALLELIO_LINK = DUX_IPK("piLink");
 struct dux_parallelio_data;
 typedef struct dux_parallelio_data
 {
-	dux_parallelio_data *link;
+	struct dux_parallelio_data *link;
 	duk_int_t width;        /* 1-32 */
 	duk_int_t offset;       /* 0-31 */
 	duk_uint_t mask;        /* ((1<<width)-1)<<offset */
@@ -331,12 +331,12 @@ DUK_LOCAL duk_ret_t pio_proto_activeLow_setter(duk_context *ctx)
 DUK_LOCAL duk_ret_t pio_proto_isInput_getter(duk_context *ctx)
 {
 	dux_parallelio_data *data = pio_get_data(ctx);
-	duk_uint_t dir = (*data->dir_val ^ data->dir_pol) & data->mask;
-	if (val == 0)
+	duk_uint_t dir = (data->dir_val ^ data->dir_pol) & data->mask;
+	if (dir == 0)
 	{
 		duk_push_true(ctx);
 	}
-	else if (val == data->mask)
+	else if (dir == data->mask)
 	{
 		duk_push_false(ctx);
 	}
@@ -353,12 +353,12 @@ DUK_LOCAL duk_ret_t pio_proto_isInput_getter(duk_context *ctx)
 DUK_LOCAL duk_ret_t pio_proto_isOutput_getter(duk_context *ctx)
 {
 	dux_parallelio_data *data = pio_get_data(ctx);
-	duk_uint_t dir = (*data->dir_val ^ data->dir_pol) & data->mask;
-	if (val == data->mask)
+	duk_uint_t dir = (data->dir_val ^ data->dir_pol) & data->mask;
+	if (dir == data->mask)
 	{
 		duk_push_true(ctx);
 	}
-	else if (val == 0)
+	else if (dir == 0)
 	{
 		duk_push_false(ctx);
 	}
@@ -482,7 +482,7 @@ DUK_LOCAL duk_ret_t pio_proto_value_setter(duk_context *ctx)
 	{
 		return DUK_RET_RANGE_ERROR;
 	}
-	data->val_ptr =
+	*data->val_ptr =
 		(*data->val_ptr & ~data->mask) |
 		(value << data->offset);
 	return 0; /* return undefined */
@@ -501,7 +501,7 @@ DUK_LOCAL duk_ret_t pio_proto_width_getter(duk_context *ctx)
 /*
  * List of ParallelIO's instance methods
  */
-DUK_LOCAL duk_function_list_entry pio_proto_funcs[] = {
+DUK_LOCAL const duk_function_list_entry pio_proto_funcs[] = {
 	/* Output */
 	{ "assert", pio_proto_assert, 0 },
 	{ "clear", pio_proto_low, 0 },
@@ -520,7 +520,7 @@ DUK_LOCAL duk_function_list_entry pio_proto_funcs[] = {
 /*
  * List of ParallelIO's instance properties
  */
-DUK_LOCAL dux_property_list_entry pio_proto_props[] = {
+DUK_LOCAL const dux_property_list_entry pio_proto_props[] = {
 	/* Polarity */
 	{ "activeHigh", pio_proto_activeHigh_getter, pio_proto_activeHigh_setter },
 	{ "activeLow", pio_proto_activeLow_getter, pio_proto_activeLow_setter },
@@ -549,13 +549,12 @@ DUK_INTERNAL duk_errcode_t dux_parallelio_init(duk_context *ctx)
 {
 	/* [ ... ] */
 	dux_push_named_c_constructor(
-			ctx, "ParallelIO", 6,
-			NULL, pio_proto_funcs,
-			NULL, pio_proto_props);
+			ctx, "ParallelIO", pio_constructor, 6,
+			NULL, pio_proto_funcs, NULL, pio_proto_props);
 	/* [ ... constructor ] */
 	duk_put_global_string(ctx, "ParallelIO");
 	/* [ ... ] */
 	return DUK_ERR_NONE;
 }
 
-#endif  /* !DUX_OPT_NO_PARALLELIO */
+#endif  /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_PARALLELIO */

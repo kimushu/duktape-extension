@@ -19,7 +19,7 @@
  *    );
  */
 
-#if !defined(DUX_OPT_NO_TIMER)
+#if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_TIMER)
 #include "../dux_internal.h"
 
 DUK_LOCAL const char DUX_IPK_TIMER[] = DUX_IPK("Timer");
@@ -335,4 +335,4 @@ DUK_INTERNAL duk_int_t dux_timer_tick(duk_context *ctx)
 #undef DESC_IDX
 #undef FUNC_IDX
 
-#endif  /* !DUX_OPT_NO_TIMER */
+#endif  /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_TIMER */

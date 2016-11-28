@@ -8,7 +8,7 @@
  *
  * TODO: Currently, destinations(stdout/stderr) are not correctly handled.
  */
-#if !defined(DUX_OPT_NO_CONSOLE)
+#if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_CONSOLE)
 #if defined(DUX_OPT_NO_PROCESS)
 # error "DUX_OPT_NO_PROCESS must be used with DUX_OPT_NO_CONSOLE"
 #endif
@@ -180,4 +180,4 @@ DUK_INTERNAL duk_errcode_t dux_console_init(duk_context *ctx)
 	return DUK_ERR_NONE;
 }
 
-#endif  /* !DUX_OPT_NO_CONSOLE */
+#endif  /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_CONSOLE */

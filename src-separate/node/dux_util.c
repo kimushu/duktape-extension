@@ -5,7 +5,7 @@
  * Internal data structure:
  *    global.util = util;
  */
-#if !defined(DUX_OPT_NO_UTIL)
+#if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_UTIL)
 #include "../dux_internal.h"
 
 /*
@@ -122,4 +122,4 @@ DUK_INTERNAL duk_ret_t dux_util_format(duk_context *ctx)
 	return util_format(ctx);
 }
 
-#endif  /* !DUX_OPT_NO_UTIL */
+#endif  /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_UTIL */

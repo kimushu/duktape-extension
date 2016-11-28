@@ -23,6 +23,7 @@ extern "C" {
 #include "node/dux_process.h"
 #include "node/dux_timer.h"
 #include "node/dux_util.h"
+#include "hw/dux_parallelio.h"
 
 #ifdef __cplusplus
 } /* extern "C" */

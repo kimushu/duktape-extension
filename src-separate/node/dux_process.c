@@ -12,7 +12,7 @@
  *    process[DUX_IPK_PROCESS_DATA] = new PlainBuffer(dux_process_data);
  *    process[DUX_IPK_PROCESS_THREAD] = new Duktape.Thread;
  */
-#if !defined(DUX_OPT_NO_PROCESS)
+#if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_PROCESS)
 #include "../dux_internal.h"
 
 DUK_LOCAL const char DUX_IPK_PROCESS[]        = DUX_IPK("Process");
@@ -335,4 +335,4 @@ DUK_INTERNAL duk_int_t dux_process_tick(duk_context *ctx)
 	return force ? DUX_TICK_RET_ABORT : DUX_TICK_RET_CONTINUE;
 }
 
-#endif  /* !DUX_OPT_NO_PROCESS */
+#endif  /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_PROCESS */

@@ -17,10 +17,14 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 		} \
 	} while (0)
 
-	INIT(timer);
+	INIT(thrpool);
+
 	INIT(console);
 	INIT(process);
+	INIT(timer);
 	INIT(util);
+
+	INIT(parallelio);
 
 #undef INIT
 
@@ -43,10 +47,14 @@ DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 		} \
 	} while (0)
 
-	TICK(timer);
+	TICK(thrpool);
+
 	TICK(console);
 	TICK(process);
+	TICK(timer);
 	TICK(util);
+
+	TICK(parallelio);
 
 #undef TICK
 
