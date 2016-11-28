@@ -20,6 +20,7 @@ extern "C" {
 #include "dux_basis.h"
 #include "dux_timer.h"
 #include "dux_thrpool.h"
+#include "node/dux_console.h"
 #include "node/dux_process.h"
 #include "node/dux_util.h"
 

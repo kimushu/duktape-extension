@@ -1,185 +1,183 @@
-#include "dux_util.h"
-#include "dux_private.h"
+/*
+ * ECMA class methods:
+ *    Console.prototype.assert(value[, message][, ...args])
+ *    Console.prototype.error([data][, ...args])
+ *    Console.prototype.info([data][, ...args])
+ *    Console.prototype.log([data][, ...args])
+ *    Console.prototype.warn([data][, ...args])
+ *
+ * TODO: Currently, destinations(stdout/stderr) are not correctly handled.
+ */
+#if !defined(DUX_OPT_NO_CONSOLE)
+#if defined(DUX_OPT_NO_PROCESS)
+# error "DUX_OPT_NO_PROCESS must be used with DUX_OPT_NO_CONSOLE"
+#endif
+#if defined(DUX_OPT_NO_UTIL)
+# error "DUX_OPT_NO_UTIL must be used with DUX_OPT_NO_CONSOLE"
+#endif
+#include "../dux_internal.h"
+#include <stdio.h>
 
-static duk_ret_t util_format(duk_context *ctx)
+/*
+ * Constants
+ */
+
+DUK_LOCAL const char DUX_IPK_CONSOLE[]      = DUX_IPK("Console");
+DUK_LOCAL const char DUX_IPK_CONSOLE_OUT[]  = DUX_IPK("coOut");
+DUK_LOCAL const char DUX_IPK_CONSOLE_ERR[]  = DUX_IPK("coErr");
+
+/*
+ * Common implementation of console functions
+ */
+DUK_LOCAL duk_ret_t console_print(duk_context *ctx, FILE* dest, const char *format)
 {
-	/* [ val ... ] */
-	duk_idx_t nargs = duk_get_top(ctx);
-	duk_idx_t arg = 1;
-	const char *format;
-	const char *end;
-	char ch;
+	duk_ret_t result;
 
-	if (nargs == 0)
+	/* [ ... ] */
+	result = dux_util_format(ctx);
+	if (result != 1)
 	{
-		duk_push_string("");
-		return 1;
+		return result;
 	}
 
-	format = duk_safe_to_string(ctx, 0);
-	duk_push_string(ctx, "");
-	/* [ ToString(val) ... string ] */
+	/* [ ... string ] */
+	fprintf(dest, format, duk_safe_to_string(ctx, -1));
 
-	for (;;)
+	return 0; /* return undefined */
+}
+
+/*
+ * Constructor of Console class
+ */
+DUK_LOCAL duk_ret_t console_constructor(duk_context *ctx)
+{
+	if (!duk_is_constructor_call(ctx))
 	{
-		for (end = format; ((ch = *end) != '\0') && (ch != '%'); ++end);
-		if (end != format)
-		{
-			duk_push_lstring(ctx, format, end - format);
-			duk_concat(ctx, 2);
-		}
-		if (ch == '\0')
-		{
-			break;
-		}
-		switch(end[1])
-		{
-		case '%':
-			++end;
-			/* fall through */
-		case '\0':
-			duk_push_string(ctx, "%");
-			format = end + 1;
-			break;
-		case 's':
-		case 'd':
-		case 'j':
-			if (arg < nargs)
-			{
-				duk_dup(ctx, arg++);
-			}
-			else
-			{
-				duk_push_undefined(ctx);
-			}
-			format = end + 2;
-			break;
-		default:
-			duk_push_lstring(ctx, end, 2);
-			format = end + 2;
-			break;
-		}
-		duk_concat(ctx, 2);
+		return DUK_RET_TYPE_ERROR;
 	}
 
-	return 1;	/* return string; */
+	return 0; /* return this */
 }
 
-static duk_ret_t util_inspect(duk_context *ctx)
+/*
+ * Entry of Console.prototype.assert()
+ */
+DUK_LOCAL duk_ret_t console_proto_assert(duk_context *ctx)
 {
-	/* TODO */
-	return DUK_RET_UNSUPPORTED_ERROR;
+	if (duk_to_boolean(ctx, 0))
+	{
+		return 0; /* return undefined */
+	}
+	duk_remove(ctx, 0);
+	dux_util_format(ctx);
+	duk_push_error_object(ctx, DUK_ERR_ASSERTION_ERROR, duk_safe_to_string(ctx, -1));
+	duk_throw(ctx);
+	/* unreachable */
+	return 0;
 }
 
-static duk_function_list_entry util_funcs[] = {
-	// debuglog
-	// deprecate
-	{ "format", util_format, DUK_VARARGS },
-	// inherits
-	{ "inspect", util_inspect, 2 };
-	{ NULL, NULL, 0 }
-};
-
-static duk_ret_t console_proto_assert(duk_context *ctx)
+/*
+ * Entry of Console.prototype.error()
+ */
+DUK_LOCAL duk_ret_t console_proto_error(duk_context *ctx)
 {
-	//
+	return console_print(ctx, stderr, "(error) %s\n");
 }
 
-static duk_ret_t console_proto_dir(duk_context *ctx)
+/*
+ * Entry of Console.prototype.info()
+ */
+DUK_LOCAL duk_ret_t console_proto_info(duk_context *ctx)
 {
-	//
+	return console_print(ctx, stdout, "(info) %s\n");
 }
 
-static duk_ret_t console_proto_error(duk_context *ctx)
+/*
+ * Entry of Console.prototype.log()
+ */
+DUK_LOCAL duk_ret_t console_proto_log(duk_context *ctx)
 {
-	return console_proto_output(ctx);
+	return console_print(ctx, stdout, "(log) %s\n");
 }
 
-static duk_ret_t console_proto_info(duk_context *ctx)
+/*
+ * Entry of Console.prototype.warn()
+ */
+DUK_LOCAL duk_ret_t console_proto_warn(duk_context *ctx)
 {
-	return console_proto_output(ctx);
+	return console_print(ctx, stderr, "(warn) %s\n");
 }
 
-static duk_ret_t console_proto_log(duk_context *ctx)
-{
-	return console_proto_output(ctx);
-}
-
-static duk_ret_t console_proto_warn(duk_context *ctx)
-{
-	return console_proto_output(ctx);
-}
-
-static duk_function_list_entry console_proto_funcs[] = {
-	{ "assert",  console_proto_assert,  DUK_VARARGS },
-	{ "dir",     console_proto_dir,     DUK_VARARGS },
-	{ "error",   console_proto_error,   DUK_VARARGS },
-	{ "info",    console_proto_info,    DUK_VARARGS },
-	{ "log",     console_proto_log,     DUK_VARARGS },
-	{ "time",    console_proto_time,    1 },
-	{ "timeEnd", console_proto_timeend, 1 },
-	{ "trace",   console_proto_trace,   DUK_VARARGS },
-	{ "warn",    console_proto_warn,    DUK_VARARGS },
-	{ NULL, NULL, 0 }
-};
-
-static duk_ret_t global_console_getter(duk_context *ctx)
+/*
+ * Getter of global.console
+ */
+DUK_LOCAL duk_ret_t global_console_getter(duk_context *ctx)
 {
 	/* [  ] */
-	duk_push_this(ctx);
+	duk_push_this(ctx); /* this == global */
 	duk_push_heap_stash(ctx);
-	/* [ this stash ] */
-	duk_get_prop_string(ctx, 1, DUX_INTRINSIC_PROCESS);
+	/* [ global stash ] */
+	duk_get_prop_string(ctx, 1, DUX_IPK_CONSOLE);
+	/* [ global stash constructor ] */
+	duk_dup(ctx, 2);
+	/* [ global stash constructor constructor ] */
+	if (duk_pnew(ctx, 0) != DUK_EXEC_SUCCESS)
+	{
+		duk_throw(ctx);
+		/* unreachable */
+		return 0;
+	}
+	/* [ global stash constructor obj ] */
+	duk_swap(ctx, 2, 3);
+	/* [ global stash obj constructor ] */
+	duk_put_prop_string(ctx, 2, "Console");
+	/* [ global stash obj ] */
 	duk_push_string(ctx, "console");
-	duk_get_prop_string(ctx, 1, DUX_INTRINSIC_CONSOLE);
-	/* [ this stash process "console" constructor ] */
-	duk_get_prop_string(ctx, 2, "stdout");
-	duk_get_prop_string(ctx, 2, "stderr");
-	/* [ this stash process "console" constructor stdout stderr ] */
-	duk_new(ctx, 2);
-	/* [ this stash process "console" obj ] */
-	duk_copy(ctx, 4, 2);
-	/* [ this stash obj "console" obj ] */
+	/* [ global stash obj "console" ] */
+	duk_dup(ctx, 2);
+	/* [ global stash obj "console" obj ] */
 	duk_def_prop(ctx, 0, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE);
-	/* [ this stash obj ] */
-	return 1;	/* return obj; */
+	/* [ global stash obj ] */
+	return 1; /* return obj */
 }
 
-void dux_console_init(duk_context *ctx)
+/*
+ * List of console functions
+ */
+DUK_LOCAL duk_function_list_entry console_proto_funcs[] = {
+	{ "assert", console_proto_assert,   DUK_VARARGS },
+	{ "error",  console_proto_error,    DUK_VARARGS },
+	{ "info",   console_proto_info,     DUK_VARARGS },
+	{ "log",    console_proto_log,      DUK_VARARGS },
+	{ "warn",   console_proto_warn,     DUK_VARARGS },
+	{ NULL, NULL, 0 }
+};
+
+/*
+ * Initialize Console module
+ */
+DUK_INTERNAL duk_errcode_t dux_console_init(duk_context *ctx)
 {
 	/* [ ... ] */
-
-	/* Console class */
 	duk_push_heap_stash(ctx);
 	/* [ ... stash ] */
-	if (!duk_get_prop_string(ctx, -1, DUX_INTRINSIC_CONSOLE))
-	{
-		/* [ ... stash undefined ] */
-		duk_pop(ctx);
-		dux_push_named_c_constructor(ctx, "Console",
-				console_constructor, 2,
-				NULL, console_proto_funcs,
-				NULL, NULL);
-		duk_dup_top(ctx);
-		/* [ ... stash constructor constructor ] */
-		duk_put_prop_string(ctx, -3, DUX_INTRINSIC_CONSOLE);
-		/* [ ... stash constructor ] */
-	}
+	dux_push_named_c_constructor(ctx, "Console",
+			console_constructor, 2,
+			NULL, console_proto_funcs,
+			NULL, NULL);
 	/* [ ... stash constructor ] */
-	duk_put_global_string(ctx, "Console");
+	duk_put_prop_string(ctx, -2, DUX_IPK_CONSOLE);
 	/* [ ... stash ] */
-	duk_pop(ctx);
-	/* [ ... ] */
-
-	/* console property */
 	duk_push_global_object(ctx);
+	/* [ ... stash global ] */
 	duk_push_string(ctx, "console");
 	duk_push_c_function(ctx, global_console_getter, 0);
-	/* [ ... global "console" getter ] */
-	duk_def_prop(ctx, -3, DUK_DEFPROP_FORCE |
-			DUK_DEFPROP_CLEAR_WRITABLE | DUK_DEFPROP_HAVE_GETTER);
-	/* [ ... global ] */
-	duk_pop(ctx);
+	/* [ ... stash global "console" getter ] */
+	duk_def_prop(ctx, -3, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_GETTER);
+	/* [ ... stash global ] */
+	duk_pop_2(ctx);
 	/* [ ... ] */
+	return DUK_ERR_NONE;
 }
 
+#endif  /* !DUX_OPT_NO_CONSOLE */

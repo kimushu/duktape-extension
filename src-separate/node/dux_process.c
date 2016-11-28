@@ -12,9 +12,10 @@
  *    process[DUX_IPK_PROCESS_DATA] = new PlainBuffer(dux_process_data);
  *    process[DUX_IPK_PROCESS_THREAD] = new Duktape.Thread;
  */
+#if !defined(DUX_OPT_NO_PROCESS)
 #include "../dux_internal.h"
 
-DUK_LOCAL const char DUX_IPK_PROCESS          = DUX_IPK("Process");
+DUK_LOCAL const char DUX_IPK_PROCESS[]        = DUX_IPK("Process");
 DUK_LOCAL const char DUX_IPK_PROCESS_DATA[]   = DUX_IPK("pData");
 DUK_LOCAL const char DUX_IPK_PROCESS_THREAD[] = DUX_IPK("pThr");
 
@@ -240,37 +241,35 @@ DUK_LOCAL dux_property_list_entry process_props[] = {
 /*
  * Initialize Process module
  */
-DUK_INTERNAL duk_errcode_t dux_process_init(duk_context *ctx, dux_process_context *mctx)
+DUK_INTERNAL duk_errcode_t dux_process_init(duk_context *ctx)
 {
 	dux_process_data *data;
 
 	/* [ ... ] */
 	duk_push_heap_stash(ctx);
 	/* [ ... stash ] */
-	duk_push_global_object(ctx);
-	/* [ ... stash global ] */
 	duk_push_object(ctx);
-	/* [ ... stash global obj ] */
+	/* [ ... stash obj ] */
 	duk_put_function_list(ctx, -1, process_funcs);
 	dux_put_property_list(ctx, -1, process_props);
 	duk_push_fixed_buffer(ctx, sizeof(dux_process_data));
-	/* [ ... stash global obj buf ] */
+	/* [ ... stash obj buf ] */
 	data = (dux_process_data *)duk_get_buffer(ctx, -1, NULL);
 	if (!data)
 	{
-		duk_pop_n(ctx, 4);
+		duk_pop_3(ctx);
 		return DUK_ERR_ALLOC_ERROR;
 	}
 	memset(data, 0, sizeof(dux_process_data));
-	duk_put_prop_string(ctx, -1, DUX_IPK_PROCESS_DATA);
-	/* [ ... stash global process ] */
+	duk_put_prop_string(ctx, -2, DUX_IPK_PROCESS_DATA);
+	/* [ ... stash obj ] */
 	duk_dup_top(ctx);
-	/* [ ... stash global process process ] */
-	duk_put_prop_string(ctx, -3, "process");
-	/* [ ... stash global process ] */
-	duk_put_prop_string(ctx, -3, DUX_IPK_PROCESS);
-	/* [ ... stash global ] */
-	duk_pop_2(ctx);
+	/* [ ... stash obj obj ] */
+	duk_put_global_string(ctx, "process");
+	/* [ ... stash obj ] */
+	duk_put_prop_string(ctx, -2, DUX_IPK_PROCESS);
+	/* [ ... stash ] */
+	duk_pop(ctx);
 	/* [ ... ] */
 	return DUK_ERR_NONE;
 }
@@ -280,6 +279,7 @@ DUK_INTERNAL duk_errcode_t dux_process_init(duk_context *ctx, dux_process_contex
  */
 DUK_INTERNAL duk_int_t dux_process_tick(duk_context *ctx)
 {
+	dux_process_data *data;
 	duk_context *tctx;
 	duk_idx_t index;
 	duk_idx_t nfuncs;
@@ -335,3 +335,4 @@ DUK_INTERNAL duk_int_t dux_process_tick(duk_context *ctx)
 	return force ? DUX_TICK_RET_ABORT : DUX_TICK_RET_CONTINUE;
 }
 
+#endif  /* !DUX_OPT_NO_PROCESS */

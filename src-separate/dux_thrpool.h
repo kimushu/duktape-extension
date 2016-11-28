@@ -37,10 +37,10 @@ DUK_INTERNAL_DECL void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads
 DUK_INTERNAL_DECL void dux_thrpool_queue(duk_context *ctx, duk_idx_t pool_index,
 		dux_thrpool_worker_t worker, dux_thrpool_completer_t completer);
 
-#else   /* DUX_OPT_NO_THRPOOL */
+#else   /* !DUX_OPT_NO_THRPOOL */
 
 #define dux_thrpool_init(ctx)   (DUK_ERR_NONE)
 #define dux_thrpool_tick(ctx)   (DUX_TICK_RET_JOBLESS)
 
 #endif  /* DUX_OPT_NO_THRPOOL */
-#endif  /* DUX_THRPOOL_H_INCLUDED */
+#endif  /* !DUX_THRPOOL_H_INCLUDED */

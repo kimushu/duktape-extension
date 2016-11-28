@@ -31,14 +31,17 @@ typedef struct dux_property_list_entry
 dux_property_list_entry;
 
 /*
- * Function definitions
+ * Functions
  */
+
+DUK_INTERNAL_DECL void dux_report_error(duk_context *ctx);
 
 /*
  * Bind arguments (Function.bind(undefined, args...))
  *
  * [ func arg1 ... argN ]  ->  [ bound_func ]
  */
+DUK_LOCAL
 DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 {
 	/* [ ... func ] */
@@ -57,6 +60,7 @@ DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 /*
  * Define multiple properties
  */
+DUK_LOCAL
 DUK_INLINE void dux_put_property_list(duk_context *ctx, duk_idx_t obj_index,
 		const dux_property_list_entry *props)
 {
@@ -78,7 +82,7 @@ DUK_INLINE void dux_put_property_list(duk_context *ctx, duk_idx_t obj_index,
 		if (func)
 		{
 			duk_push_c_function(ctx, func, 1);
-			flags |= DUK_DEFPROP_HAVE_SETTER | DUK_DEFPROP_SET_WRITABLE;
+			flags |= DUK_DEFPROP_HAVE_SETTER;
 		}
 		duk_def_prop(ctx, obj_index, flags);
 	}
@@ -87,6 +91,7 @@ DUK_INLINE void dux_put_property_list(duk_context *ctx, duk_idx_t obj_index,
 /*
  * Push duk_c_function with name property
  */
+DUK_LOCAL
 DUK_INLINE duk_idx_t dux_push_named_c_function(
 		duk_context *ctx, const char *name,
 		duk_c_function func, duk_idx_t nargs)
@@ -101,6 +106,7 @@ DUK_INLINE duk_idx_t dux_push_named_c_function(
 /*
  * Push duk_c_function with name property and methods
  */
+DUK_LOCAL
 DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 		duk_context *ctx, const char *name,
 		duk_c_function func, duk_idx_t nargs,
@@ -134,4 +140,4 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 	return result;
 }
 
-#endif  /* DUX_BASIS_H_INCLUDED */
+#endif  /* !DUX_BASIS_H_INCLUDED */

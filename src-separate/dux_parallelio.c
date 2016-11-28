@@ -30,6 +30,7 @@
  *      [DUX_IPK_PARALLELIO_LINK]: <PlainBuffer dux_parallelio_data>
  *    };
  */
+#if !defined(DUX_OPT_NO_PARALLELIO)
 #include "dux_internal.h"
 
 /*
@@ -557,3 +558,4 @@ DUK_INTERNAL duk_errcode_t dux_parallelio_init(duk_context *ctx)
 	return DUK_ERR_NONE;
 }
 
+#endif  /* !DUX_OPT_NO_PARALLELIO */

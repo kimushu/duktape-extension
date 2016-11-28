@@ -1,16 +1,15 @@
-#ifndef DUX_CONSOLE_H_
-#define DUX_CONSOLE_H_
+#ifndef DUX_CONSOLE_H_INCLUDED
+#define DUX_CONSOLE_H_INCLUDED
 
-#include "duktape.h"
+#if !defined(DUX_OPT_NO_CONSOLE)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+DUK_INTERNAL_DECL duk_errcode_t dux_console_init(duk_context *ctx);
+#define dux_console_tick(ctx)   (DUX_TICK_RET_JOBLESS)
 
-extern void dux_console_init(duk_context *ctx);
+#else   /* !DUX_OPT_NO_CONSOLE */
 
-#ifdef __cplusplus
-}	/* extern "C" */
-#endif
+#define dux_console_init(ctx)   (DUK_ERR_NONE)
+#define dux_console_tick(ctx)   (DUX_TICK_RET_JOBLESS)
 
-#endif /* DUX_CONSOLE_H_ */
+#endif  /* DUX_OPT_NO_CONSOLE */
+#endif  /* !DUX_CONSOLE_H_INCLUDED */

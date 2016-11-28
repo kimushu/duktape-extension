@@ -5,6 +5,7 @@
  * Internal data structure:
  *    global.util = util;
  */
+#if !defined(DUX_OPT_NO_UTIL)
 #include "../dux_internal.h"
 
 /*
@@ -100,23 +101,25 @@ DUK_LOCAL duk_function_list_entry util_funcs[] = {
 	// deprecate
 	{ "format", util_format, DUK_VARARGS },
 	// inherits
-	{ "inspect", util_inspect, 2 };
+	{ "inspect", util_inspect, 2 },
 	{ NULL, NULL, 0 }
 };
 
-DUK_INTERNAL duk_errcode_t dux_util_init(duk_context *ctx, dux_context_util *xctx)
+DUK_INTERNAL duk_errcode_t dux_util_init(duk_context *ctx)
 {
 	/* [ ... ] */
-	duk_push_global_object(ctx);
-	/* [ ... global ] */
 	duk_push_object(ctx);
-	/* [ ... global obj ] */
+	/* [ ... obj ] */
 	duk_put_function_list(ctx, -1, util_funcs);
-	/* [ ... global util ] */
-	duk_put_prop_string(ctx, -2, "util");
-	/* [ ... global ] */
-	duk_pop(ctx);
+	/* [ ... util ] */
+	duk_put_global_string(ctx, "util");
 	/* [ ... ] */
 	return DUK_ERR_NONE;
 }
 
+DUK_INTERNAL duk_ret_t dux_util_format(duk_context *ctx)
+{
+	return util_format(ctx);
+}
+
+#endif  /* !DUX_OPT_NO_UTIL */

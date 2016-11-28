@@ -18,6 +18,7 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 	} while (0)
 
 	INIT(timer);
+	INIT(console);
 	INIT(process);
 	INIT(util);
 
@@ -29,7 +30,7 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 /*
  * Tick handler
  */
-DUX_EXTENRAL duk_bool_t dux_tick(duk_context *ctx)
+DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 {
 	duk_int_t result = 0;
 
@@ -43,10 +44,20 @@ DUX_EXTENRAL duk_bool_t dux_tick(duk_context *ctx)
 	} while (0)
 
 	TICK(timer);
+	TICK(console);
 	TICK(process);
+	TICK(util);
 
 #undef TICK
 
 	return (result & DUX_TICK_RET_CONTINUE) ? 1 : 0;
+}
+
+/*
+ * Top level error reporter
+ */
+DUK_INTERNAL void dux_report_error(duk_context *ctx)
+{
+	/* TODO */
 }
 

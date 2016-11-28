@@ -21,4 +21,4 @@ DUK_EXTERNAL_DECL duk_bool_t dux_tick(duk_context *ctx);
 }   /* extern "C" */
 #endif
 
-#endif  /* DUX_ALL_H_INCLUDED */
+#endif  /* !DUX_ALL_H_INCLUDED */
