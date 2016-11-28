@@ -1,29 +1,20 @@
-#ifndef DUX_PARALLELIO_H_
-#define DUX_PARALLELIO_H_
+#ifndef DUX_PARALLELIO_H_INCLUDED
+#define DUX_PARALLELIO_H_INCLUDED
 
-#include "duktape.h"
+#if !defined(DUX_OPT_NO_PARALLELIO)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/*
+ * Functions
+ */
 
-typedef struct dux_parallelio_t
-{
-	duk_int_t width;
-	duk_int_t offset;
-	duk_uint_t mask;
-	duk_uint_t *val_ptr;
-	duk_uint_t *dir_ptr;
-	duk_uint_t dir_val;
-	duk_uint_t dir_pol;
-	duk_uint_t pol_val;
-}
-dux_parallelio_t;
+DUK_INTERNAL_DECL duk_errcode_t dux_parallelio_init(duk_context *ctx);
 
-extern void dux_parallelio_init(duk_context *ctx);
+#else   /* DUX_OPT_NO_PARALLELIO */
 
-#ifdef __cplusplus
-}	/* extern "C" */
-#endif
+#define dux_parallelio_init(ctx)    (DUK_ERR_NONE)
 
-#endif /* DUX_PARALLELIO_H_ */
+#endif  /* DUX_OPT_NO_PARALLELIO */
+
+#define dux_parallelio_tick(ctx)    (DUX_TICK_RET_JOBLESS)
+
+#endif  /* DUX_PARALLELIO_H_INCLUDED */

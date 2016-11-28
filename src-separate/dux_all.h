@@ -10,7 +10,7 @@ extern "C" {
 /*
  * Initialization
  */
-DUK_EXTERNAL_DECL duk_bool_t dux_initialize(duk_context *ctx);
+DUK_EXTERNAL_DECL duk_errcode_t dux_initialize(duk_context *ctx);
 
 /*
  * Tick handling
