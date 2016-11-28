@@ -13,6 +13,9 @@ SOURCES = $(addprefix $(SRCDIR)/,\
 		altera_hal/dux_timer_alt.c \
 		linux/dux_timer_linux.c \
 	hw/dux_parallelio.c \
+	hw/dux_i2ccon.c \
+	peridot/dux_peridot.c \
+		peridot/dux_peridot_i2c.c \
 	)
 PREAMBLE = $(SRCDIR)/dux_preamble.h
 DEP = .dux_all.dep
@@ -30,7 +33,7 @@ test: $(TARGETS)
 
 .PRECIOUS: $(TARGETS)
 
-$(DESTDIR)/dux_all.c: $(PREAMBLE) $(SOURCES) $(MAKEFILELIST)
+$(DESTDIR)/dux_all.c: $(PREAMBLE) $(SOURCES) $(MAKEFILE_LIST)
 	mkdir -p $(dir $@)
 	$(COMBINE) --line --header $< \
 		-e duktape.h -o $@ --dep $(DEP) \

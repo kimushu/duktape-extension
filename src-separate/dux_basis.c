@@ -1,4 +1,5 @@
 #include "dux_internal.h"
+#include <stdio.h>
 
 DUK_LOCAL const char DUX_IPK_TABLE[]  = DUX_IPK("bTable");
 DUK_LOCAL const char DUX_IPK_STORE[]  = DUX_IPK("bStore");
@@ -25,6 +26,9 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 	INIT(util);
 
 	INIT(parallelio);
+	INIT(i2ccon);
+
+	INIT(peridot);
 
 #undef INIT
 
@@ -55,6 +59,9 @@ DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 	TICK(util);
 
 	TICK(parallelio);
+	TICK(i2ccon);
+
+	TICK(peridot);
 
 #undef TICK
 
@@ -67,5 +74,6 @@ DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 DUK_INTERNAL void dux_report_error(duk_context *ctx)
 {
 	/* TODO */
+	fprintf(stderr, "Uncaught error: %s\n", duk_safe_to_string(ctx, -1));
 }
 

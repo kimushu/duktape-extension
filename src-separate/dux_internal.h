@@ -19,11 +19,17 @@ extern "C" {
 
 #include "dux_basis.h"
 #include "dux_thrpool.h"
+
 #include "node/dux_console.h"
 #include "node/dux_process.h"
 #include "node/dux_timer.h"
 #include "node/dux_util.h"
+
 #include "hw/dux_parallelio.h"
+#include "hw/dux_i2ccon.h"
+
+#include "peridot/dux_peridot.h"
+#include "peridot/dux_peridot_i2c.h"
 
 #ifdef __cplusplus
 } /* extern "C" */

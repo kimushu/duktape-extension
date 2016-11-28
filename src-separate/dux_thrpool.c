@@ -9,8 +9,8 @@
  * Internal data structure:
  *    heap_stash[DUX_IPK_THRPOOL] = new PlainBuffer(dux_thrpool_link);
  *    <thrpool object> = {
- *      b: <PlainBuffer dux_thrpool_pool>,
- *      t: <Duktape.Thread>
+ *      B: <PlainBuffer dux_thrpool_pool>,
+ *      T: <Duktape.Thread>
  *    };
  *    <job object> = new Array();
  *    <job object>[DUX_IPK_THRPOOL_JOB] = new PlainBuffer(dux_thrpool_job);
@@ -28,8 +28,8 @@
 
 DUK_LOCAL const char DUX_IPK_THRPOOL[]      = DUX_IPK("Thrpool");
 DUK_LOCAL const char DUX_IPK_THRPOOL_JOB[]  = DUX_IPK("tpJob");
-DUK_LOCAL const char THRPOOL_KEY_BUF[]      = "b";
-DUK_LOCAL const char THRPOOL_KEY_THREAD[]   = "t";
+DUK_LOCAL const char THRPOOL_KEY_BUF[]      = "B";
+DUK_LOCAL const char THRPOOL_KEY_THREAD[]   = "T";
 
 enum
 {

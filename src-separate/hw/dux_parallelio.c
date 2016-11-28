@@ -1,6 +1,6 @@
 /*
  * ECMA classes:
- *    new ParallelIO(
+ *    new global.ParallelIO(
  *      <uint> width,
  *      <uint> offset,
  *      <pointer> val_ptr,
@@ -9,7 +9,7 @@
  *      <uint> pol_val
  *    );
  *
- * ECMA class methods:
+ * ECMA methods:
  *    ParallelIO.prototype.assert()
  *    ParallelIO.prototype.clear()  // same as low()
  *    ParallelIO.prototype.high()
@@ -20,7 +20,7 @@
  *    ParallelIO.prototype.set()    // same as high()
  *    ParallelIO.prototype.toggle()
  *
- * ECMA class properties:
+ * ECMA properties:
  *    ParallelIO.prototype.value
  *    ParallelIO.prototype.width
  *
