@@ -17,6 +17,7 @@
 #include <system.h>
 #include <peridot_swi_regs.h>
 #include <string.h>
+#include <ctype.h>
 
 /*
  * Constants
@@ -129,7 +130,8 @@ DUK_INTERNAL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, co
 	{
 		duk_pop(ctx);
 		char *ukey = alloca(strlen(key) + 1);
-		char *dest, *src;
+		char *dest;
+		const char *src;
 		for (dest = ukey, src = key;;)
 		{
 			if ((*dest++ = toupper(*src++)) == '\0')
@@ -152,7 +154,7 @@ DUK_INTERNAL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, co
 		// "D10"
 		// "d10"
 		// "10"
-		const char *end;
+		char *end;
 		if ((str[0] == 'D') || (str[0] == 'd'))
 		{
 			++str;

@@ -91,6 +91,7 @@ typedef struct dux_thrpool_pool
 	sem_t sem;                  /* Worker trigger */
 	pthread_mutex_t lock;       /* Lock object for link lists */
 	dux_thrpool_job *pend_head, *pend_tail;
+	dux_thrpool_job *work_head, *work_tail;
 	dux_thrpool_job *done_head, *done_tail;
 
 	dux_thrpool_thread threads[0];
@@ -168,6 +169,7 @@ DUK_LOCAL void *thrpool_thread(dux_thrpool_thread *thread)
 		job = pool->pend_head;
 		if (job)
 		{
+			/* Remove job from pending chain */
 			next_job = pool->pend_head = job->next_job;
 			if (next_job)
 			{
@@ -178,7 +180,17 @@ DUK_LOCAL void *thrpool_thread(dux_thrpool_thread *thread)
 				pool->pend_tail = NULL;
 			}
 
-			job->prev_job = NULL;
+			/* Append job to working chain */
+			prev_job = job->prev_job = pool->work_tail;
+			pool->work_tail = job;
+			if (prev_job)
+			{
+				prev_job->next_job = job;
+			}
+			else
+			{
+				pool->work_head = job;
+			}
 			job->next_job = NULL;
 		}
 		pthread_mutex_unlock(&pool->lock);
@@ -188,10 +200,32 @@ DUK_LOCAL void *thrpool_thread(dux_thrpool_thread *thread)
 			continue;
 		}
 
+		/* Do work */
 		thread->state = THRPOOL_STATE_WORKING;
 		job->result = (*job->worker)(&job->blocks[0], job->num_blocks);
 
 		pthread_mutex_lock(&pool->lock);
+		/* Remove job from working chain */
+		prev_job = job->prev_job;
+		if (prev_job)
+		{
+			prev_job->next_job = job->next_job;
+		}
+		else
+		{
+			pool->work_head = job->next_job;
+		}
+		next_job = job->next_job;
+		if (next_job)
+		{
+			next_job->prev_job = job->prev_job;
+		}
+		else
+		{
+			pool->work_tail = job->prev_job;
+		}
+
+		/* Append job to done chain */
 		prev_job = job->prev_job = pool->done_tail;
 		pool->done_tail = job;
 		if (prev_job)
@@ -364,7 +398,7 @@ DUK_INTERNAL duk_int_t dux_thrpool_tick(duk_context *ctx)
 			dux_thrpool_job *job;
 
 			pthread_mutex_lock(&pool->lock);
-			if (pool->pend_head)
+			if (pool->pend_head || pool->work_head)
 			{
 				result = DUX_TICK_RET_CONTINUE;
 			}
@@ -558,6 +592,12 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 		{
 			// uint
 			block->uint = duk_get_uint(ctx, -1);
+			block->length = 0;
+		}
+		else if (duk_is_pointer(ctx, -1))
+		{
+			// pointer
+			block->uint = duk_get_pointer(ctx, -1);
 			block->length = 0;
 		}
 		else

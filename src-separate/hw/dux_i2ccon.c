@@ -21,6 +21,7 @@
 
 DUK_LOCAL const char DUX_IPK_I2CCON[]      = DUX_IPK("I2CCon");
 DUK_LOCAL const char DUX_IPK_I2CCON_DATA[] = DUX_IPK("icData");
+DUK_LOCAL const char DUX_IPK_I2CCON_AUX[]  = DUX_IPK("icAux");
 
 /*
  * Get data pointer
@@ -41,58 +42,81 @@ DUK_LOCAL dux_i2ccon_data *i2ccon_get_data(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t i2ccon_constructor(duk_context *ctx)
 {
-	/* [ buf ] */
+	dux_i2ccon_data *data;
+	duk_ret_t result;
 
+	/* [ buf obj ] */
 	if (!duk_is_constructor_call(ctx))
 	{
 		return DUK_RET_TYPE_ERROR;
 	}
 
-	duk_require_buffer(ctx, 0, NULL);
+	data = (dux_i2ccon_data *)duk_require_buffer(ctx, 0, NULL);
 
 	duk_push_this(ctx);
-	/* [ buf this ] */
-	duk_swap(ctx, 0, 1);
-	/* [ this buf ] */
+	/* [ buf obj this ] */
+	duk_swap(ctx, 0, 2);
+	/* [ this obj buf ] */
 	duk_put_prop_string(ctx, 0, DUX_IPK_I2CCON_DATA);
-	/* [ this ] */
+	/* [ this obj ] */
+	duk_dup(ctx, 1);
+	/* [ this obj obj ] */
+	duk_put_prop_string(ctx, 0, DUX_IPK_I2CCON_AUX);
+	/* [ this obj ] */
+	duk_push_uint(ctx, data->bitrate);
+	/* [ this obj uint ] */
+	duk_insert(ctx, 0);
+	/* [ uint this obj ] */
+	result = (*data->update_bitrate)(ctx, data);
+	if (result != 0)
+	{
+		return result; /* return error */
+	}
+	/* [ this this obj ] */
 	return 0; /* return this */
 }
 
 /*
  * Common implementation of I2CConnection read/write functions
  */
-DUK_LOCAL duk_ret_t i2ccon_proto_common(duk_context *ctx,
-		duk_idx_t widx, duk_idx_t ridx, duk_idx_t cidx)
+DUK_LOCAL duk_ret_t i2ccon_proto_writeAndRead_body(duk_context *ctx,
+                                                   duk_bool_t write)
 {
-	/* [ ... writedata ... readlen ... callback ... ] */
-	/*       ^widx >=0     ^ridx >=0   ^cidx          */
 	dux_i2ccon_data *data = i2ccon_get_data(ctx);
 	duk_uint_t readlen;
 
-	readlen = 0;
-	if (ridx >= 0)
+	/* [ writedata readlen callback ] */
+	readlen = duk_require_uint(ctx, 1);
+	/* [ writedata uint callback ] */
+	if (readlen > 0)
 	{
-		readlen = duk_require_uint(ctx, ridx);
+		duk_push_fixed_buffer(ctx, readlen);
 	}
-
-	if (widx >= 0)
+	else
 	{
-		if (duk_is_array(ctx, widx))
+		duk_push_undefined(ctx);
+	}
+	duk_replace(ctx, 1);
+	/* [ writedata buf/undefined callback ] */
+
+	if (write)
+	{
+		if (duk_is_array(ctx, 0))
 		{
 			// Array => Convert to fixed Buffer
 			duk_size_t size;
 			duk_uarridx_t aidx;
 			unsigned char *buffer;
 
-			size = duk_get_length(ctx, widx);
+			size = duk_get_length(ctx, 0);
 			duk_push_fixed_buffer(ctx, size);
-			buffer = (unsigned char *)duk_get_buffer(ctx, -1, NULL);
+			/* [ arr buf/undefined callback buf ] */
+			buffer = (unsigned char *)duk_get_buffer(ctx, 3, NULL);
 
 			for (aidx = 0; aidx < size; ++aidx)
 			{
 				duk_uint_t byte;
-				duk_get_prop_index(ctx, widx, aidx);
+				duk_get_prop_index(ctx, 0, aidx);
 				byte = duk_require_uint(ctx, -1);
 				duk_pop(ctx);
 				if (byte > 0xff)
@@ -101,13 +125,16 @@ DUK_LOCAL duk_ret_t i2ccon_proto_common(duk_context *ctx,
 				}
 				*buffer++ = (unsigned char)byte;
 			}
+
+			duk_replace(ctx, 0);
+			/* [ buf buf/undefined callback ] */
 		}
-		else if (duk_is_string(ctx, widx) || duk_is_buffer(ctx, widx))
+		else if (duk_is_string(ctx, 0) || duk_is_buffer(ctx, 0))
 		{
 			// string, Duktape.Buffer, Node.js Buffer, ArrayBuffer,
 			// DataView, TypedArray
 			// => No conversion needed
-			duk_dup(ctx, widx);
+			/* [ buf/string buf/undefined callback ] */
 		}
 		else
 		{
@@ -116,22 +143,25 @@ DUK_LOCAL duk_ret_t i2ccon_proto_common(duk_context *ctx,
 	}
 	else
 	{
-		duk_push_undefined(ctx);
+		/* [ undefined buf/undefined callback ] */
 	}
 
-	if (duk_is_null_or_undefined(ctx, cidx))
+	if (duk_is_null_or_undefined(ctx, 2))
 	{
 		// TODO: Promise support
-		duk_push_undefined(ctx);
+		return DUK_RET_UNSUPPORTED_ERROR;
 	}
 	else
 	{
-		duk_require_function(ctx, cidx);
-		duk_dup(ctx, cidx);
+		duk_require_function(ctx, 2);
 	}
+	/* [ buf/string/undefined buf/undefined func ] */
 
-	/* [ ... writedata func ] */
-	return (*data->transfer)(ctx, data, readlen);
+	duk_push_this(ctx);
+	duk_get_prop_string(ctx, 3, DUX_IPK_I2CCON_AUX);
+	/* [ buf/string/undefined buf/undefined func this obj ] */
+
+	return (*data->transfer)(ctx, data);
 }
 
 /*
@@ -139,7 +169,11 @@ DUK_LOCAL duk_ret_t i2ccon_proto_common(duk_context *ctx,
  */
 DUK_LOCAL duk_ret_t i2ccon_proto_read(duk_context *ctx)
 {
-	return i2ccon_proto_common(ctx, -1, 0, 1);
+	/* [ uint func ] */
+	duk_push_undefined(ctx);
+	duk_insert(ctx, 0);
+	/* [ undefined uint func ] */
+	return i2ccon_proto_writeAndRead_body(ctx, 0);
 }
 
 /*
@@ -147,7 +181,8 @@ DUK_LOCAL duk_ret_t i2ccon_proto_read(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t i2ccon_proto_writeAndRead(duk_context *ctx)
 {
-	return i2ccon_proto_common(ctx, 0, 1, 2);
+	/* [ obj uint func ] */
+	return i2ccon_proto_writeAndRead_body(ctx, 1);
 }
 
 /*
@@ -155,7 +190,11 @@ DUK_LOCAL duk_ret_t i2ccon_proto_writeAndRead(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t i2ccon_proto_write(duk_context *ctx)
 {
-	return i2ccon_proto_common(ctx, 0, -1, 1);
+	/* [ obj func ] */
+	duk_push_uint(ctx, 0);
+	duk_swap(ctx, 1, 2);
+	/* [ obj 0 func ] */
+	return i2ccon_proto_writeAndRead_body(ctx, 1);
 }
 
 /*
@@ -188,6 +227,10 @@ DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
 		return DUK_RET_RANGE_ERROR;
 	}
 	data->bitrate = new_bitrate;
+	duk_push_this(ctx);
+	/* [ uint this ] */
+	duk_get_prop_string(ctx, 1, DUX_IPK_I2CCON_AUX);
+	/* [ uint this obj ] */
 	result = (*data->update_bitrate)(ctx, data);
 	if (result != 0)
 	{
@@ -236,7 +279,7 @@ DUK_INTERNAL duk_errcode_t dux_i2ccon_init(duk_context *ctx)
 	duk_push_heap_stash(ctx);
 	/* [ ... stash ] */
 	dux_push_named_c_constructor(
-			ctx, "I2CConnection", i2ccon_constructor, 1,
+			ctx, "I2CConnection", i2ccon_constructor, 2,
 			NULL, i2ccon_proto_funcs, NULL, i2ccon_proto_props);
 	/* [ ... stash constructor ] */
 	duk_put_prop_string(ctx, -2, DUX_IPK_I2CCON);
