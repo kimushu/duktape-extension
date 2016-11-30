@@ -5,10 +5,9 @@ import os
 import sys
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-l", "--line", action="store_true", help="output #line directive")
 parser.add_argument("files", nargs="+", help="input source file")
+parser.add_argument("-l", "--line", action="store_true", help="output #line directive")
 parser.add_argument("-e", "--external", action="append", help="external headers")
-parser.add_argument("-C", "--chdir", help="change working directory")
 parser.add_argument("-o", "--output", help="output file")
 parser.add_argument("--header", nargs="*", help="file to be inserted to the head of output")
 parser.add_argument("--footer", nargs="*", help="file to be inserted to the tail of output")
@@ -46,9 +45,6 @@ def parse(path, args):
             l = False
         args.outf.write(line)
     f.close()
-
-if args.chdir:
-    os.chdir(args.chdir)
 
 if args.output:
     args.outf = open(args.output, "w")
