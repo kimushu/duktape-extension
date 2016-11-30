@@ -597,7 +597,7 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 		else if (duk_is_pointer(ctx, -1))
 		{
 			// pointer
-			block->uint = duk_get_pointer(ctx, -1);
+			block->pointer = duk_get_pointer(ctx, -1);
 			block->length = 0;
 		}
 		else

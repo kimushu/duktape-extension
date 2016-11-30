@@ -11,9 +11,12 @@ SOURCES = \
 	node/dux_timer.c \
 		altera_hal/dux_timer_alt.c \
 		linux/dux_timer_linux.c \
-	hw/dux_parallelio.c \
+	altera_hal/dux_hardware_io_alt.c \
+	linux/dux_hardware_io_linux.c \
+	hw/dux_paraio.c \
 	hw/dux_i2ccon.c \
 	peridot/dux_peridot.c \
+		peridot/dux_peridot_gpio.c \
 		peridot/dux_peridot_i2c.c
 
 PREAMBLE = dux_preamble.h
@@ -28,7 +31,7 @@ clean:
 
 .PHONY: test
 test: $(TARGETS)
-	make -C src
+	make -C $(DESTDIR)
 
 .PRECIOUS: $(TARGETS)
 

@@ -35,6 +35,7 @@ dux_property_list_entry;
  */
 
 DUK_INTERNAL_DECL void dux_report_error(duk_context *ctx);
+DUK_INTERNAL_DECL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_idx);
 
 /*
  * Bind arguments (Function.bind(undefined, args...))
@@ -104,7 +105,7 @@ DUK_INLINE duk_idx_t dux_push_named_c_function(
 }
 
 /*
- * Push duk_c_function with name property and methods
+ * Push duk_c_function with name, property and methods
  */
 DUK_LOCAL
 DUK_INLINE duk_idx_t dux_push_named_c_constructor(
@@ -137,6 +138,43 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 		}
 		duk_put_prop_string(ctx, -2, "prototype");
 	}
+	return result;
+}
+
+/*
+ * Push duk_c_function as inherited constructor
+ * with name, property and methods
+ */
+DUK_LOCAL
+DUK_INLINE duk_idx_t dux_push_inherited_named_c_constructor(
+		duk_context *ctx, duk_idx_t super_idx, const char *name,
+		duk_c_function func, duk_idx_t nargs,
+		const duk_function_list_entry *static_funcs,
+		const duk_function_list_entry *prototype_funcs,
+		const dux_property_list_entry *static_props,
+		const dux_property_list_entry *prototype_props)
+{
+	duk_idx_t result;
+	super_idx = duk_normalize_index(ctx, super_idx);
+	result = dux_push_named_c_function(ctx, name, func, nargs);
+	if (static_funcs)
+	{
+		duk_put_function_list(ctx, -1, static_funcs);
+	}
+	if (static_props)
+	{
+		dux_put_property_list(ctx, -1, static_props);
+	}
+	dux_push_inherited_object(ctx, super_idx);
+	if (prototype_funcs)
+	{
+		duk_put_function_list(ctx, -1, prototype_funcs);
+	}
+	if (prototype_props)
+	{
+		dux_put_property_list(ctx, -1, prototype_props);
+	}
+	duk_put_prop_string(ctx, -2, "prototype");
 	return result;
 }
 

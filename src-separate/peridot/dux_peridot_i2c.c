@@ -1,16 +1,29 @@
 /*
- * ECMA classes:
- *   new PeridotI2C(
- *     {
- *       scl: <uint>,
- *       sda: <uint>
- *     }
- *   );
- *   global.Peridot.I2C = PeridotI2C;
+ * ECMA objects:
+ *    class PeridotI2C {
+ *      constructor({scl: <uint> pin, sda: <uint> pin}) {
+ *      }
  *
- * ECMA methods:
- *   PeridotI2C.connect(pins, slaveAddress[, bitrate])
- *   PeridotI2C.prototype.connect(slaveAddress[, bitrate])
+ *      static connect({scl: <uint> pin, sda: <uint> pin},
+ *                     <uint> slaveAddress,
+ *                     <uint> bitrate = I2C_DEFAULT_BITRATE) {
+ *        return <I2CConnection>;
+ *      }
+ *
+ *      connect(<uint> slaveAddress,
+ *              <uint> bitrate = I2C_DEFAULT_BITRATE) {
+ *        return <I2CConnection>;
+ *      }
+ *    }
+ *    global.Peridot.I2C = PeridotI2C;
+ *
+ * Internal data structure:
+ *    PeridotI2C.[[prototype]].[[DUX_IPK_PERIDOT_I2C_POOLS]] = new Array(
+ *      thrpool1, ..., thrpoolN
+ *    );
+ *    thrpoolX.[[DUX_IPK_PERIDOT_I2C_DRIVER]] = <pointer> driver;
+ *    (new PeridotI2C).[[DUX_IPK_PERIDOT_I2C_DRIVER]] = <pointer> driver;
+ *    (new PeridotI2C).[[DUX_IPK_PERIDOT_I2C_PINS]] = <uint> pins;
  */
 #if defined(DUX_USE_BOARD_PERIDOT)
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_I2C)
@@ -309,8 +322,6 @@ DUK_LOCAL duk_ret_t i2c_constructor(duk_context *ctx)
 	/* [ obj constructor this ] */
 	duk_push_uint(ctx, pins.uint);
 	duk_put_prop_string(ctx, 2, DUX_IPK_PERIDOT_I2C_PINS);
-	duk_get_prop_string(ctx, 1, DUX_IPK_PERIDOT_I2C_POOLS);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PERIDOT_I2C_POOLS);
 
 	return 0; /* return this */
 }
@@ -413,10 +424,12 @@ DUK_INTERNAL duk_errcode_t dux_peridot_i2c_init(duk_context *ctx)
 	/* [ ... obj ] */
 	dux_push_named_c_constructor(
 			ctx, "PeridotI2C", i2c_constructor, 1,
-			i2c_funcs, i2c_proto_funcs, NULL, NULL);
+			i2c_funcs, i2c_proto_funcs, NULL, i2c_proto_props);
 	/* [ ... obj constructor ] */
+	duk_get_prototype(ctx, -1);
+	/* [ ... obj constructor proto ] */
 	duk_push_array(ctx);
-	/* [ ... obj constructor arr ] */
+	/* [ ... obj constructor proto arr ] */
 	for (index = 0;; ++index)
 	{
 		peridot_i2c_master_state *driver;
@@ -427,14 +440,16 @@ DUK_INTERNAL duk_errcode_t dux_peridot_i2c_init(duk_context *ctx)
 		}
 		dux_push_thrpool(ctx, 1, 1);
 		duk_push_pointer(ctx, driver);
-		/* [ ... obj constructor arr thrpool pointer ] */
+		/* [ ... obj constructor proto arr thrpool pointer ] */
 		duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT_I2C_DRIVER);
-		/* [ ... obj constructor arr thrpool ] */
+		/* [ ... obj constructor proto arr thrpool ] */
 		duk_put_prop_index(ctx, -2, index);
-		/* [ ... obj constructor arr ] */
+		/* [ ... obj constructor proto arr ] */
 	}
 
 	duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT_I2C_POOLS);
+	/* [ ... obj constructor proto ] */
+	duk_pop(ctx);
 	/* [ ... obj constructor ] */
 
 	if (index == 0)

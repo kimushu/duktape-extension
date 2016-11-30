@@ -25,10 +25,12 @@ extern "C" {
 #include "node/dux_timer.h"
 #include "node/dux_util.h"
 
-#include "hw/dux_parallelio.h"
+#include "hw/dux_hardware_io.h"
+#include "hw/dux_paraio.h"
 #include "hw/dux_i2ccon.h"
 
 #include "peridot/dux_peridot.h"
+#include "peridot/dux_peridot_gpio.h"
 #include "peridot/dux_peridot_i2c.h"
 
 #ifdef __cplusplus

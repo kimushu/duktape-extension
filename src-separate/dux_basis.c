@@ -25,7 +25,7 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 	INIT(timer);
 	INIT(util);
 
-	INIT(parallelio);
+	INIT(paraio);
 	INIT(i2ccon);
 
 	INIT(peridot);
@@ -58,7 +58,7 @@ DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 	TICK(timer);
 	TICK(util);
 
-	TICK(parallelio);
+	TICK(paraio);
 	TICK(i2ccon);
 
 	TICK(peridot);
@@ -75,5 +75,38 @@ DUK_INTERNAL void dux_report_error(duk_context *ctx)
 {
 	/* TODO */
 	fprintf(stderr, "Uncaught error: %s\n", duk_safe_to_string(ctx, -1));
+}
+
+/*
+ * Empty function for Object.create
+ */
+DUK_LOCAL duk_ret_t dux_no_operation(duk_context *ctx)
+{
+	return 0;
+}
+
+/*
+ * Push inherited prototype
+ */
+DUK_INTERNAL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_idx)
+{
+	/* [ ... super ... constructor ] */
+	/*  super_idx^     ^top          */
+	super_idx = duk_normalize_index(ctx, super_idx);
+	duk_push_c_function(ctx, dux_no_operation, 0);
+	/* [ ... super ... constructor func ] */
+	duk_get_prop_string(ctx, super_idx, "prototype");
+	/* [ ... super ... constructor func super_proto ] */
+	duk_put_prop_string(ctx, -2, "prototype");
+	/* [ ... super ... constructor func ] */
+	duk_new(ctx, 0);
+	/* [ ... super ... constructor inherited ] */
+	if (0)
+	{
+		duk_dup(ctx, -2);
+		/* [ ... super ... constructor inherited constructor ] */
+		duk_put_prop_string(ctx, -2, "constructor");
+		/* [ ... super ... constructor inherited ] */
+	}
 }
 

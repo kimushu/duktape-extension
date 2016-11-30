@@ -39,11 +39,9 @@ DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
 	/* [ key constructor ] */
 	duk_push_uint(ctx, 1);                                      /* width */
 	duk_push_uint(ctx, PERIDOT_SWI_RSTSTS_LED_OFST);            /* offset */
-	duk_push_pointer(ctx, IOADDR_PERIDOT_SWI_RSTSTS(SWI_BASE)); /* val_ptr */
-	duk_push_pointer(ctx, NULL);                                /* dir_ptr */
-	duk_push_uint(ctx, PERIDOT_SWI_RSTSTS_LED_MSK);             /* dir_val */
-	duk_push_uint(ctx, 0);                                      /* pol_val */
-	duk_new(ctx, 6);
+	duk_push_pointer(ctx, (void *)&dux_paraio_manip_rw);        /* manip */
+	duk_push_pointer(ctx, IOADDR_PERIDOT_SWI_RSTSTS(SWI_BASE)); /* pointer */
+	duk_new(ctx, 4);
 	/* [ key obj ] */
 	duk_push_this(ctx);
 	/* [ key obj this ] */
@@ -87,6 +85,7 @@ DUK_INTERNAL duk_errcode_t dux_peridot_init(duk_context *ctx)
 		} \
 	} while (0)
 
+	INIT(gpio);
 	INIT(i2c);
 
 #undef INIT
