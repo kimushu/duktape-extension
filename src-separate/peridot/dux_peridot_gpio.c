@@ -167,7 +167,7 @@ DUK_LOCAL duk_ret_t gpio_constructor(duk_context *ctx)
 	duk_push_uint(ctx, 0);
 	duk_push_pointer(ctx, (void *)&gpio_manip_multi);
 	duk_push_pointer(ctx, NULL);
-	/* [ super this uint uint pointer pointer ] */
+	/* [ super this uint uint uint pointer pointer ] */
 	duk_call_method(ctx, 5);
 	duk_push_this(ctx);
 	duk_get_prototype(ctx, -1);

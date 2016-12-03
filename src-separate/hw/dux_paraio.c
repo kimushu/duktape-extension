@@ -131,7 +131,7 @@ DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
 	duk_push_this(ctx);
 	duk_push_fixed_buffer(ctx, sizeof(dux_paraio_data));
 	/* [ uint uint uint pointer pointer:4 this:5 buf:6 ] */
-	data = (dux_paraio_data *)duk_require_buffer(ctx, 5, NULL);
+	data = (dux_paraio_data *)duk_require_buffer(ctx, 6, NULL);
 
 	data->width = duk_require_uint(ctx, 0);
 	if ((data->width == 0) || (data->width > 32))
@@ -147,9 +147,9 @@ DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
 
 	data->link = data;
 	data->bits = ((1 << data->width) - 1) << data->offset;
-	data->manip = (const dux_paraio_manip *)duk_get_pointer(ctx, 3);
-	data->param = (void *)duk_get_pointer(ctx, 4);
-	data->cfg_pol = duk_get_uint(ctx, 3);
+	data->manip = (const dux_paraio_manip *)duk_require_pointer(ctx, 3);
+	data->param = (void *)duk_require_pointer(ctx, 4);
+	data->cfg_pol = duk_require_uint(ctx, 2);
 	data->cfg_lock = 0;
 
 	result = (*data->manip->read_config)(ctx, data->param, data->bits,
@@ -159,8 +159,8 @@ DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
 		return result;
 	}
 
-	duk_put_prop_string(ctx, 4, DUX_IPK_PARAIO_DATA);
-	/* [ ... this:4 ] */
+	duk_put_prop_string(ctx, 5, DUX_IPK_PARAIO_DATA);
+	/* [ ... this:5 ] */
 
 	return 0; /* return this */
 }
@@ -846,7 +846,7 @@ DUK_INTERNAL duk_errcode_t dux_paraio_init(duk_context *ctx)
 {
 	/* [ ... ] */
 	dux_push_named_c_constructor(
-			ctx, "ParallelIO", paraio_constructor, 4,
+			ctx, "ParallelIO", paraio_constructor, 5,
 			NULL, paraio_proto_funcs, NULL, paraio_proto_props);
 	/* [ ... constructor ] */
 	duk_put_global_string(ctx, "ParallelIO");
