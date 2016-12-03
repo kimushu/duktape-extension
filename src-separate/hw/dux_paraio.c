@@ -2,7 +2,7 @@
  * ECMA objects:
  *    class ParallelIO {
  *      // With accessor functions
- *      constructor(<uint> width, <uint> offset, <uint> pol,
+ *      constructor(<uint> width, <uint> offset, <uint> polarity,
  *                  <pointer> manip, <pointer> param) {
  *      }
  *

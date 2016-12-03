@@ -39,9 +39,10 @@ DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
 	/* [ key constructor ] */
 	duk_push_uint(ctx, 1);                                      /* width */
 	duk_push_uint(ctx, PERIDOT_SWI_RSTSTS_LED_OFST);            /* offset */
+	duk_push_uint(ctx, 0);                                      /* polarity */
 	duk_push_pointer(ctx, (void *)&dux_paraio_manip_rw);        /* manip */
 	duk_push_pointer(ctx, IOADDR_PERIDOT_SWI_RSTSTS(SWI_BASE)); /* pointer */
-	duk_new(ctx, 4);
+	duk_new(ctx, 5);
 	/* [ key obj ] */
 	duk_push_this(ctx);
 	/* [ key obj this ] */
