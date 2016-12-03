@@ -2,7 +2,7 @@
  * ECMA objects:
  *    class ParallelIO {
  *      // With accessor functions
- *      constructor(<uint> width, <uint> offset,
+ *      constructor(<uint> width, <uint> offset, <uint> pol,
  *                  <pointer> manip, <pointer> param) {
  *      }
  *
@@ -127,10 +127,10 @@ DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
 	dux_paraio_data *data;
 	const dux_paraio_manip *manip;
 
-	/* [ uint uint pointer pointer ] */
+	/* [ uint uint uint pointer pointer:4 ] */
 	duk_push_this(ctx);
 	duk_push_fixed_buffer(ctx, sizeof(dux_paraio_data));
-	/* [ uint uint pointer pointer this:4 buf:5 ] */
+	/* [ uint uint uint pointer pointer:4 this:5 buf:6 ] */
 	data = (dux_paraio_data *)duk_require_buffer(ctx, 5, NULL);
 
 	data->width = duk_require_uint(ctx, 0);
@@ -147,9 +147,9 @@ DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
 
 	data->link = data;
 	data->bits = ((1 << data->width) - 1) << data->offset;
-	data->manip = (const dux_paraio_manip *)duk_get_pointer(ctx, 2);
-	data->param = (void *)duk_get_pointer(ctx, 3);
-	data->cfg_pol = 0;
+	data->manip = (const dux_paraio_manip *)duk_get_pointer(ctx, 3);
+	data->param = (void *)duk_get_pointer(ctx, 4);
+	data->cfg_pol = duk_get_uint(ctx, 3);
 	data->cfg_lock = 0;
 
 	result = (*data->manip->read_config)(ctx, data->param, data->bits,
@@ -181,7 +181,7 @@ DUK_LOCAL duk_ret_t paraio_proto_assert(duk_context *ctx)
 		return DUK_RET_TYPE_ERROR;
 	}
 	result = (*data->manip->write_output)(ctx, data->param,
-				data->cfg_pol & bits, ~data->cfg_pol & bits, 0);
+				~data->cfg_pol & bits, data->cfg_pol & bits, 0);
 	if (result != 0)
 	{
 		return result;
@@ -254,9 +254,7 @@ DUK_LOCAL duk_ret_t paraio_proto_negate(duk_context *ctx)
 		return DUK_RET_TYPE_ERROR;
 	}
 	result = (*data->manip->write_output)(ctx, data->param,
-				~data->cfg_pol & bits,
-				data->cfg_pol & bits,
-				0);
+				data->cfg_pol & bits, ~data->cfg_pol & bits, 0);
 	if (result != 0)
 	{
 		return result;
