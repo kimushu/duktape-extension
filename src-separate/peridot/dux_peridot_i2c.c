@@ -136,6 +136,8 @@ DUK_LOCAL duk_int_t i2ccon_worker(const dux_thrpool_block *blocks, duk_size_t nu
  */
 DUK_LOCAL duk_ret_t i2ccon_completer(duk_context *ctx)
 {
+	duk_idx_t nargs;
+
 	/* [ job int ] */
 	duk_int_t ret = duk_require_int(ctx, 1);
 	duk_get_prop_index(ctx, 0, I2C_BLKIDX_CALLBACK);
@@ -149,12 +151,22 @@ DUK_LOCAL duk_ret_t i2ccon_completer(duk_context *ctx)
 		/* [ job int func true ] */
 		duk_get_prop_index(ctx, 0, I2C_BLKIDX_READBUF);
 		/* [ job int func true buf:4 ] */
-		duk_push_buffer_object(ctx, 4,
-				0, duk_get_length(ctx, 4),
-				DUK_BUFOBJ_ARRAYBUFFER);
-		/* [ job int func true buf:4 bufobj(ArrayBuffer):5 ] */
-		duk_remove(ctx, 4);
-		/* [ job int func true bufobj(ArrayBuffer):4 ] */
+		if (duk_is_null_or_undefined(ctx, 4))
+		{
+			duk_pop(ctx);
+			/* [ job int func true ] */
+			nargs = 1;
+		}
+		else
+		{
+			duk_push_buffer_object(ctx, 4,
+					0, duk_get_length(ctx, 4),
+					DUK_BUFOBJ_ARRAYBUFFER);
+			/* [ job int func true buf:4 bufobj(ArrayBuffer):5 ] */
+			duk_remove(ctx, 4);
+			/* [ job int func true bufobj(ArrayBuffer):4 ] */
+			nargs = 2;
+		}
 	}
 	else
 	{
@@ -163,9 +175,10 @@ DUK_LOCAL duk_ret_t i2ccon_completer(duk_context *ctx)
 		/* [ job int func false ] */
 		duk_push_error_object(ctx, DUK_ERR_API_ERROR, "I2C transfer failed (%d)", ret);
 		/* [ job int func false err ] */
+		nargs = 2;
 	}
 
-	duk_call(ctx, 2);
+	duk_call(ctx, nargs);
 	/* [ job int retval ] */
 
 	return 0;
@@ -320,8 +333,12 @@ DUK_LOCAL duk_ret_t i2c_constructor(duk_context *ctx)
 	duk_push_current_function(ctx);
 	duk_push_this(ctx);
 	/* [ obj constructor this ] */
+
 	duk_push_uint(ctx, pins.uint);
 	duk_put_prop_string(ctx, 2, DUX_IPK_PERIDOT_I2C_PINS);
+
+	duk_get_prop_string(ctx, 1, DUX_IPK_PERIDOT_I2C_POOLS);
+	duk_put_prop_string(ctx, 2, DUX_IPK_PERIDOT_I2C_POOLS);
 
 	return 0; /* return this */
 }
@@ -426,10 +443,8 @@ DUK_INTERNAL duk_errcode_t dux_peridot_i2c_init(duk_context *ctx)
 			ctx, "PeridotI2C", i2c_constructor, 1,
 			i2c_funcs, i2c_proto_funcs, NULL, i2c_proto_props);
 	/* [ ... obj constructor ] */
-	duk_get_prototype(ctx, -1);
-	/* [ ... obj constructor proto ] */
 	duk_push_array(ctx);
-	/* [ ... obj constructor proto arr ] */
+	/* [ ... obj constructor arr ] */
 	for (index = 0;; ++index)
 	{
 		peridot_i2c_master_state *driver;
@@ -440,16 +455,14 @@ DUK_INTERNAL duk_errcode_t dux_peridot_i2c_init(duk_context *ctx)
 		}
 		dux_push_thrpool(ctx, 1, 1);
 		duk_push_pointer(ctx, driver);
-		/* [ ... obj constructor proto arr thrpool pointer ] */
+		/* [ ... obj constructor arr thrpool pointer ] */
 		duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT_I2C_DRIVER);
-		/* [ ... obj constructor proto arr thrpool ] */
+		/* [ ... obj constructor arr thrpool ] */
 		duk_put_prop_index(ctx, -2, index);
-		/* [ ... obj constructor proto arr ] */
+		/* [ ... obj constructor arr ] */
 	}
 
 	duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT_I2C_POOLS);
-	/* [ ... obj constructor proto ] */
-	duk_pop(ctx);
 	/* [ ... obj constructor ] */
 
 	if (index == 0)
