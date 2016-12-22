@@ -134,7 +134,7 @@ DUK_INTERNAL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, co
 		const char *src;
 		for (dest = ukey, src = key;;)
 		{
-			if ((*dest++ = toupper(*src++)) == '\0')
+			if ((*dest++ = toupper((int)*src++)) == '\0')
 			{
 				break;
 			}

@@ -125,7 +125,6 @@ DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
 {
 	duk_ret_t result;
 	dux_paraio_data *data;
-	const dux_paraio_manip *manip;
 
 	/* [ uint uint uint pointer pointer:4 ] */
 	duk_push_this(ctx);
