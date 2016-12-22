@@ -18,7 +18,7 @@
  *    global.Peridot.I2C = PeridotI2C;
  *
  * Internal data structure:
- *    PeridotI2C.[[prototype]].[[DUX_IPK_PERIDOT_I2C_POOLS]] = new Array(
+ *    PeridotI2C.[[DUX_IPK_PERIDOT_I2C_POOLS]] = new Array(
  *      thrpool1, ..., thrpoolN
  *    );
  *    thrpoolX.[[DUX_IPK_PERIDOT_I2C_DRIVER]] = <pointer> driver;

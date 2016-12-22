@@ -1,17 +1,29 @@
 /*
- * ECMA classes:
- *    new I2CConnection(
- *      <PlainBuffer> data
- *    );
+ * ECMA objects:
+ *    class I2CConnection {
+ *      constructor(<PlainBuffer> data) {
+ *      }
  *
- * ECMA methods:
- *    I2CConnection.prototype.read(readlen, callback)
- *    I2CConnection.prototype.write(writedata, callback)
- *    I2CConnection.prototype.writeAndRead(writedata, readlen, callback)
+ *      read(<uint> readlen, <Function> callback) {
+ *        return;
+ *      }
  *
- * ECMA properties:
- *    I2CConnection.prototype.bitrate
- *    I2CConnection.prototype.slaveAddress
+ *      write(<ArrayBuffer/string> writedata,
+ *            <Function> callback) {
+ *        return;
+ *      }
+ *
+ *      writeAndRead(<ArrayBuffer/string> writedata,
+ *                   <uint> readlen,
+ *                   <Function> callback) {
+ *        return;
+ *      }
+ *
+ *      get bitrate()       { return <uint>; }
+ *      set bitrate(<uint> value) {}
+ *
+ *      get slaveAddress()  { return <uint>; }
+ *    }
  *
  * Native functions:
  *    void dux_push_i2ccon_constructor(duk_context *ctx);
