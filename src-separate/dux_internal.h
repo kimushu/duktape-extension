@@ -13,6 +13,10 @@ extern "C" {
 
 #define DUX_VERSION_STRING  "0.1.0"
 
+#if defined(__nios2__) && defined(__hal__)
+#include <system.h>
+#endif  /* __nios2__ && __hal__ */
+
 /*
  * Sub modules
  */
