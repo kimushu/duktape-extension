@@ -55,6 +55,7 @@ DUK_LOCAL duk_ret_t util_format(duk_context *ctx)
 		case 's':
 		case 'd':
 		case 'j':
+		case 'o':
 			if (arg < nargs)
 			{
 				duk_dup(ctx, arg++);
@@ -63,6 +64,7 @@ DUK_LOCAL duk_ret_t util_format(duk_context *ctx)
 			{
 				duk_push_undefined(ctx);
 			}
+			duk_safe_to_string(ctx, -1);
 			++cat;
 			format = end + 2;
 			break;
