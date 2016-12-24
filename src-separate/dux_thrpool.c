@@ -543,6 +543,7 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 	int pended;
 
 	/* Get pool data */
+	pool_index = duk_normalize_index(ctx, pool_index);
 	duk_get_prop_string(ctx, pool_index, THRPOOL_KEY_BUF);
 	pool = (dux_thrpool_pool *)duk_require_buffer(ctx, -1, NULL);
 	duk_pop(ctx);
