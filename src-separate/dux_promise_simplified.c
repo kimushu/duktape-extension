@@ -49,10 +49,12 @@
 #if !defined(DUX_OPT_NO_PROMISE) && !defined(DUX_OPT_STANDARD_PROMISE)
 #include "dux_internal.h"
 
-DUK_LOCAL const char DUX_IPK_PROMISE_CALLBACKS[]          = DUX_IPK("pmC");
+DUK_LOCAL const char DUX_IPK_PROMISE_CALLBACKS[]          = DUX_IPK("PromiseCb");
 DUK_LOCAL const char DUX_IPK_PROMISE_VALUE[]              = DUX_IPK("pmV");
 DUK_LOCAL const char DUX_IPK_PROMISE_FULFILL_REACTIONS[]  = DUX_IPK("pmF");
 DUK_LOCAL const char DUX_IPK_PROMISE_REJECT_REACTIONS[]   = DUX_IPK("pmR");
+DUK_LOCAL const char DUX_IPK_PROMISE_CHILDREN[]           = DUX_IPK("pmC");
+DUK_LOCAL const char DUX_IPK_PROMISE_WAITING_COUNT[]      = DUX_IPK("pmW");
 
 DUK_LOCAL_DECL duk_ret_t promise_on_resolved(duk_context *ctx);
 DUK_LOCAL_DECL duk_ret_t promise_on_rejected(duk_context *ctx);
@@ -89,11 +91,10 @@ DUK_LOCAL duk_ret_t promise_invoke_executor(duk_context *ctx)
 }
 
 /*
- * Invoker of reactions
+ * Make status transition (Trigger of reactions)
  * Note: The promise at stack[0] must be preserved for promise_resolve()/promise_reject()
  */
-DUK_LOCAL duk_ret_t promise_on_settled(duk_context *ctx,
-                                       const char *key_queued, const char *key_removed)
+DUK_LOCAL duk_ret_t promise_transition(duk_context *ctx, duk_bool_t resolved)
 {
 	duk_size_t reactions;
 	duk_uarridx_t ridx, cidx;
@@ -101,13 +102,22 @@ DUK_LOCAL duk_ret_t promise_on_settled(duk_context *ctx,
 	/* [ promise value/reason ] */
 	duk_put_prop_string(ctx, 0, DUX_IPK_PROMISE_VALUE);
 	/* [ promise ] */
-	duk_del_prop_string(ctx, 0, key_removed);
-	duk_get_prop_string(ctx, 0, key_queued);
+	if (resolved)
+	{
+		duk_del_prop_string(ctx, 0, DUX_IPK_PROMISE_REJECT_REACTIONS);
+		duk_get_prop_string(ctx, 0, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+		duk_push_undefined(ctx);
+		duk_put_prop_string(ctx, 0, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+	}
+	else
+	{
+		duk_del_prop_string(ctx, 0, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+		duk_get_prop_string(ctx, 0, DUX_IPK_PROMISE_REJECT_REACTIONS);
+		duk_push_undefined(ctx);
+		duk_put_prop_string(ctx, 0, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	}
 	/* [ promise arr(reactions) ] */
 	reactions = duk_get_length(ctx, 1);
-	duk_push_undefined(ctx);
-	duk_put_prop_string(ctx, 0, key_queued);
-	/* [ promise arr(reactions) ] */
 
 	if (reactions == 0)
 	{
@@ -131,7 +141,7 @@ DUK_LOCAL duk_ret_t promise_on_settled(duk_context *ctx,
 }
 
 /*
- * Handler for resolved
+ * Handler for fulfillment
  * Note: The promise at stack[0] must be preserved for promise_resolve()
  */
 DUK_LOCAL duk_ret_t promise_on_resolved(duk_context *ctx)
@@ -145,7 +155,7 @@ DUK_LOCAL duk_ret_t promise_on_resolved(duk_context *ctx)
 		return 0; /* return undefined; */
 	}
 
-	if (!duk_is_object_coercible(ctx, 1))
+	if (!duk_is_object(ctx, 1))
 	{
 		goto resolve;
 	}
@@ -161,9 +171,7 @@ DUK_LOCAL duk_ret_t promise_on_resolved(duk_context *ctx)
 			 */
 			duk_remove(ctx, 1);
 			/* [ promise reason ] */
-			return promise_on_settled(ctx,
-					DUX_IPK_PROMISE_REJECT_REACTIONS,
-					DUX_IPK_PROMISE_FULFILL_REACTIONS);
+			return promise_transition(ctx, 0);
 		}
 
 		/*
@@ -234,13 +242,11 @@ DUK_LOCAL duk_ret_t promise_on_resolved(duk_context *ctx)
 	/* [ promise value ] */
 
 resolve:
-	return promise_on_settled(ctx,
-			DUX_IPK_PROMISE_FULFILL_REACTIONS,
-			DUX_IPK_PROMISE_REJECT_REACTIONS);
+	return promise_transition(ctx, 1);
 }
 
 /*
- * Handler for rejected
+ * Handler for rejection
  * Note: The promise at stack[0] must be preserved for promise_reject()
  */
 DUK_LOCAL duk_ret_t promise_on_rejected(duk_context *ctx)
@@ -254,9 +260,7 @@ DUK_LOCAL duk_ret_t promise_on_rejected(duk_context *ctx)
 		return 0; /* return undefined; */
 	}
 
-	return promise_on_settled(ctx,
-			DUX_IPK_PROMISE_REJECT_REACTIONS,
-			DUX_IPK_PROMISE_FULFILL_REACTIONS);
+	return promise_transition(ctx, 0);
 }
 
 /*
@@ -403,22 +407,6 @@ DUK_LOCAL duk_ret_t promise_proto_catch(duk_context *ctx)
 }
 
 /*
- * Entry of Promise.all()
- */
-DUK_LOCAL duk_ret_t promise_all(duk_context *ctx)
-{
-	return DUK_RET_UNSUPPORTED_ERROR;
-}
-
-/*
- * Entry of Promise.race()
- */
-DUK_LOCAL duk_ret_t promise_race(duk_context *ctx)
-{
-	return DUK_RET_UNSUPPORTED_ERROR;
-}
-
-/*
  * Entry of Promise.resolve()
  */
 DUK_LOCAL duk_ret_t promise_resolve(duk_context *ctx)
@@ -426,6 +414,16 @@ DUK_LOCAL duk_ret_t promise_resolve(duk_context *ctx)
 	duk_ret_t result;
 
 	/* [ value ] */
+	if ((duk_is_object(ctx, 0)) &&
+		(duk_has_prop_string(ctx, 0, DUX_IPK_PROMISE_FULFILL_REACTIONS) ||
+		 duk_has_prop_string(ctx, 0, DUX_IPK_PROMISE_REJECT_REACTIONS)))
+	{
+		/*
+		 * value is a Promise object
+		 */
+		return 1; /* return value; */
+	}
+
 	duk_push_object(ctx);
 	duk_push_this(ctx);
 	/* [ value obj constructor ] */
@@ -473,6 +471,366 @@ DUK_LOCAL duk_ret_t promise_reject(duk_context *ctx)
 	/* [ promise ... ] */
 	duk_set_top(ctx, 1);
 	/* [ promise ] */
+	return 1; /* return promise; */
+}
+
+/*
+ * Handler for fulfillment in Promise.all()
+ */
+DUK_LOCAL duk_ret_t promise_all_resolver(duk_context *ctx)
+{
+	duk_size_t len, waiting;
+	duk_uarridx_t idx;
+
+	/* [ promise ] */
+	if (!duk_get_prop_string(ctx, 0, DUX_IPK_PROMISE_WAITING_COUNT))
+	{
+		/*
+		 * This promise has been already rejected
+		 * by another child's rejection
+		 */
+		return 0; /* return undefined; */
+	}
+	/* [ promise uint ] */
+	waiting = duk_get_uint(ctx, 1);
+	if (waiting == 0)
+	{
+		return DUK_RET_INTERNAL_ERROR;
+	}
+	if (--waiting > 0)
+	{
+		/*
+		 * There are still waiting promises
+		 */
+		duk_push_uint(ctx, waiting);
+		/* [ promise uint uint ] */
+		duk_put_prop_string(ctx, 0, DUX_IPK_PROMISE_WAITING_COUNT);
+		/* [ promise uint ] */
+		return 0; /* return undefined; */
+	}
+	duk_pop(ctx);
+	/* [ promise ] */
+
+	/*
+	 * All promises have been resolved
+	 */
+	duk_del_prop_string(ctx, 0, DUX_IPK_PROMISE_WAITING_COUNT);
+	duk_get_prop_string(ctx, 0, DUX_IPK_PROMISE_CHILDREN);
+	duk_del_prop_string(ctx, 0, DUX_IPK_PROMISE_CHILDREN);
+	/* [ promise children ] */
+	len = duk_get_length(ctx, 1);
+
+	for (idx = 0; idx < len; ++idx)
+	{
+		duk_get_prop_index(ctx, 1, idx);
+		/* [ promise children child ] */
+		duk_get_prop_string(ctx, 2, DUX_IPK_PROMISE_VALUE);
+		duk_put_prop_index(ctx, 1, idx);
+		/* [ promise children child ] */
+		duk_pop(ctx);
+		/* [ promise children ] */
+	}
+	/* [ promise values ] */
+	return promise_transition(ctx, 1);
+}
+
+/*
+ * Handler for rejection in Promise.all()/Promise.race()
+ */
+DUK_LOCAL duk_ret_t promise_first_rejector(duk_context *ctx)
+{
+	duk_uarridx_t idx;
+
+	/* [ promise child ] */
+	if (duk_has_prop_string(ctx, 0, DUX_IPK_PROMISE_VALUE))
+	{
+		/*
+		 * This promise has been already rejected
+		 * by another child's rejection
+		 */
+		return 0; /* return undefined; */
+	}
+
+	/*
+	 * Fail fast
+	 */
+	duk_del_prop_string(ctx, 0, DUX_IPK_PROMISE_WAITING_COUNT);
+	duk_del_prop_string(ctx, 0, DUX_IPK_PROMISE_CHILDREN);
+
+	if (!duk_get_prop_string(ctx, 1, DUX_IPK_PROMISE_VALUE))
+	{
+		return DUK_RET_INTERNAL_ERROR;
+	}
+	/* [ promise child reason ] */
+	duk_replace(ctx, 1);
+	/* [ promise reason ] */
+	return promise_transition(ctx, 0);
+}
+
+/*
+ * Entry of Promise.all()
+ * Note: Only arrays are acceptable for iterable object
+ */
+DUK_LOCAL duk_ret_t promise_all(duk_context *ctx)
+{
+	duk_size_t len, waiting;
+	duk_uarridx_t idx;
+
+	/* [ arr ] */
+	len = duk_get_length(ctx, 0);
+	duk_push_c_function(ctx, promise_resolve, 1);
+	duk_push_object(ctx);
+	duk_push_this(ctx);
+	/* [ arr func obj constructor:3 ] */
+	duk_get_prop_string(ctx, 3, "prototype");
+	duk_set_prototype(ctx, 2);
+	/* [ arr func promise constructor:3 ] */
+	duk_pop(ctx);
+	/* [ arr func promise ] */
+	if (len == 0)
+	{
+		/*
+		 * No promises to wait
+		 * -> Return a promise which is resolved with empty array
+		 */
+		duk_push_array(ctx);
+		duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_VALUE);
+		duk_push_undefined(ctx);
+		duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+		/* [ arr func promise ] */
+		return 1; /* return promise; */
+	}
+
+	duk_push_array(ctx);
+	/* [ arr func promise children:3 ] */
+	waiting = 0;
+	for (idx = 0; idx < len; ++idx)
+	{
+		duk_dup(ctx, 1);
+		duk_push_this(ctx);
+		/* [ arr func promise children:3 func:4 constructor:5 ] */
+		duk_get_prop_index(ctx, 0, idx);
+		/* [ ... children:3 func:4 constructor:5 value:6 ] */
+		duk_call_method(ctx, 1);
+		/* [ ... children:3 child:4 ] */
+
+		if (duk_get_prop_string(ctx, 4, DUX_IPK_PROMISE_VALUE))
+		{
+			/* [ ... children:3 child:4 value/reason:5 ] */
+
+			/*
+			 * Child promise has been already settled
+			 */
+
+			if (duk_has_prop_string(ctx, 4, DUX_IPK_PROMISE_REJECT_REACTIONS))
+			{
+				/*
+				 * Child promise has been already rejected
+				 * -> Fail fast
+				 */
+				/* [ ... promise:2 children:3 child:4 reason:5 ] */
+				duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_VALUE);
+				/* [ ... promise:2 children:3 child:4 ] */
+				duk_push_undefined(ctx);
+				duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+				duk_pop_2(ctx);
+				/* [ ... promise:2 ] */
+				return 1; /* return promise; */
+			}
+		}
+		else
+		{
+			/*
+			 * Child promise is pending
+			 */
+			duk_pop(ctx);
+			/* [ ... children:3 child:4 ] */
+			++waiting;
+
+			duk_get_prop_string(ctx, 4, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+			/* [ ... children:3 child:4 arr(reactions):5 ] */
+			duk_push_c_function(ctx, promise_all_resolver, 1);
+			duk_dup(ctx, 2);
+			dux_bind_arguments(ctx, 1);
+			duk_put_prop_index(ctx, 5, duk_get_length(ctx, 5));
+			duk_pop(ctx);
+			/* [ ... children:3 child:4 ] */
+
+			duk_get_prop_string(ctx, 4, DUX_IPK_PROMISE_REJECT_REACTIONS);
+			/* [ ... promise:2 children:3 child:4 arr(reactions):5 ] */
+			duk_push_c_function(ctx, promise_first_rejector, 2);
+			duk_dup(ctx, 2);
+			duk_dup(ctx, 4);
+			dux_bind_arguments(ctx, 2);
+			duk_put_prop_index(ctx, 5, duk_get_length(ctx, 5));
+		}
+		/* [ ... children:3 child:4 obj:5 ] */
+		duk_pop(ctx);
+		/* [ ... children:3 child:4 ] */
+		duk_put_prop_index(ctx, 3, idx);
+		/* [ ... children:3 ] */
+	}
+	/* [ arr func promise children:3 ] */
+
+	if (waiting == 0)
+	{
+		/*
+		 * All children have been already resolved
+		 */
+		for (idx = 0; idx < len; ++idx)
+		{
+			duk_get_prop_index(ctx, 3, idx);
+			/* [ ... children:3 child:4 ] */
+			duk_get_prop_string(ctx, 4, DUX_IPK_PROMISE_VALUE);
+			duk_put_prop_index(ctx, 3, idx);
+			/* [ ... children:3 child:4 ] */
+			duk_pop(ctx);
+			/* [ ... children:3 ] */
+		}
+		/* [ arr func promise values ] */
+		duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_VALUE);
+		/* [ arr func promise ] */
+		duk_push_undefined(ctx);
+		duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+		/* [ arr func promise ] */
+		return 1; /* return promise; */
+	}
+
+	/* [ arr func promise children:3 ] */
+	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_CHILDREN);
+	/* [ arr func promise ] */
+	duk_push_uint(ctx, waiting);
+	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_WAITING_COUNT);
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	/* [ arr func promise ] */
+	return 1; /* return promise; */
+}
+
+/*
+ * Handler for fulfillment in Promise.race()
+ */
+DUK_LOCAL duk_ret_t promise_race_resolver(duk_context *ctx)
+{
+	/* [ promise child ] */
+	if (duk_has_prop_string(ctx, 0, DUX_IPK_PROMISE_VALUE))
+	{
+		/*
+		 * This promise has been already resolved/rejected
+		 * by another child's fulfillment/rejection
+		 */
+		return 0; /* return undefined; */
+	}
+	/* [ promise child ] */
+	if (!duk_get_prop_string(ctx, 1, DUX_IPK_PROMISE_VALUE))
+	{
+		return DUK_RET_INTERNAL_ERROR;
+	}
+	/* [ promise child value ] */
+	duk_replace(ctx, 1);
+	/* [ promise value ] */
+	return promise_transition(ctx, 1);
+}
+
+/*
+ * Entry of Promise.race()
+ * Note: Only arrays are acceptable for iterable object
+ */
+DUK_LOCAL duk_ret_t promise_race(duk_context *ctx)
+{
+	duk_size_t len;
+	duk_uarridx_t idx;
+
+	/* [ arr ] */
+	len = duk_get_length(ctx, 0);
+	duk_push_c_function(ctx, promise_resolve, 1);
+	duk_push_object(ctx);
+	duk_push_this(ctx);
+	/* [ arr func obj constructor:3 ] */
+	duk_get_prop_string(ctx, 3, "prototype");
+	duk_set_prototype(ctx, 2);
+	/* [ arr func promise constructor:3 ] */
+	duk_pop(ctx);
+	/* [ arr func promise ] */
+	if (len == 0)
+	{
+		/*
+		 * No promises to wait
+		 * -> Return a promise which never been settled
+		 */
+		goto pend;
+	}
+
+	for (idx = 0; idx < len; ++idx)
+	{
+		duk_dup(ctx, 1);
+		duk_push_this(ctx);
+		/* [ arr func promise func:3 constructor:4 ] */
+		duk_get_prop_index(ctx, 0, idx);
+		/* [ ... func:3 constructor:4 value:5 ] */
+		duk_call_method(ctx, 1);
+		/* [ arr func promise child:3 ] */
+
+		if (duk_get_prop_string(ctx, 3, DUX_IPK_PROMISE_VALUE))
+		{
+			/* [ arr func promise child:3 value:4 ] */
+
+			/*
+			 * Child promise has been already settled
+			 */
+			duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_VALUE);
+			duk_push_undefined(ctx);
+			/* [ arr func promise child:3 undefined:4 ] */
+			if (duk_has_prop_string(ctx, 3, DUX_IPK_PROMISE_FULFILL_REACTIONS))
+			{
+				duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+			}
+			else
+			{
+				duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+			}
+			/* [ arr func promise child:3 ] */
+			duk_pop(ctx);
+			/* [ arr func promise ] */
+			return 1; /* return promise; */
+		}
+		duk_pop(ctx);
+		/* [ arr func promise child:3 ] */
+
+		/*
+		 * Child promise is pending
+		 */
+
+		duk_get_prop_string(ctx, 3, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+		/* [ arr func promise child:3 arr(reactions):4 ] */
+		duk_push_c_function(ctx, promise_race_resolver, 2);
+		duk_dup(ctx, 2);
+		duk_dup(ctx, 3);
+		dux_bind_arguments(ctx, 2);
+		duk_put_prop_index(ctx, 4, duk_get_length(ctx, 4));
+		duk_pop(ctx);
+		/* [ arr func promise child:3 ] */
+
+		duk_get_prop_string(ctx, 3, DUX_IPK_PROMISE_REJECT_REACTIONS);
+		/* [ arr func promise child:3 arr(reactions):4 ] */
+		duk_push_c_function(ctx, promise_first_rejector, 2);
+		duk_dup(ctx, 2);
+		duk_dup(ctx, 3);
+		dux_bind_arguments(ctx, 2);
+		duk_put_prop_index(ctx, 4, duk_get_length(ctx, 4));
+		duk_pop_2(ctx);
+		/* [ arr func promise ] */
+	}
+	/* [ arr func promise ] */
+
+pend:
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	/* [ arr func promise ] */
 	return 1; /* return promise; */
 }
 
@@ -547,14 +905,15 @@ DUK_INTERNAL duk_errcode_t dux_promise_init(duk_context *ctx)
 DUK_INTERNAL duk_int_t dux_promise_tick(duk_context *ctx)
 {
 	duk_int_t result = DUX_TICK_RET_JOBLESS;
-	duk_size_t callbacks;
-	duk_uarridx_t cidx;
+	duk_size_t len;
+	duk_uarridx_t idx;
 
 	/* [ ... ] */
 	duk_push_heap_stash(ctx);
 	/* [ ... stash ] */
+
 	if (duk_get_prop_string(ctx, -1, DUX_IPK_PROMISE_CALLBACKS) &&
-		((callbacks = duk_get_length(ctx, -1)) > 0))
+		((len = duk_get_length(ctx, -1)) > 0))
 	{
 		/* [ ... stash arr ] */
 		duk_push_array(ctx);
@@ -562,9 +921,9 @@ DUK_INTERNAL duk_int_t dux_promise_tick(duk_context *ctx)
 		/* [ ... stash arr ] */
 
 		result = DUX_TICK_RET_CONTINUE;
-		for (cidx = 0; cidx < callbacks; ++cidx)
+		for (idx = 0; idx < len; ++idx)
 		{
-			duk_get_prop_index(ctx, -1, cidx);
+			duk_get_prop_index(ctx, -1, idx);
 			/* [ ... stash arr func ] */
 			if (duk_pcall(ctx, 0) != DUK_EXEC_SUCCESS)
 			{
