@@ -49,6 +49,7 @@
 #if !defined(DUX_OPT_NO_PROMISE) && !defined(DUX_OPT_STANDARD_PROMISE)
 #include "dux_internal.h"
 
+DUK_LOCAL const char DUX_IPK_PROMISE[]                    = DUX_IPK("Promise");
 DUK_LOCAL const char DUX_IPK_PROMISE_CALLBACKS[]          = DUX_IPK("PromiseCb");
 DUK_LOCAL const char DUX_IPK_PROMISE_VALUE[]              = DUX_IPK("pmV");
 DUK_LOCAL const char DUX_IPK_PROMISE_FULFILL_REACTIONS[]  = DUX_IPK("pmF");
@@ -889,6 +890,8 @@ DUK_INTERNAL duk_errcode_t dux_promise_init(duk_context *ctx)
 	/* [ ... constructor ] */
 	duk_push_heap_stash(ctx);
 	/* [ ... constructor stash ] */
+	duk_dup(ctx, -2);
+	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE);
 	duk_push_array(ctx);
 	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE_CALLBACKS);
 	/* [ ... constructor stash ] */
@@ -939,6 +942,65 @@ DUK_INTERNAL duk_int_t dux_promise_tick(duk_context *ctx)
 	duk_pop_2(ctx);
 	/* [ ... ] */
 	return result;
+}
+
+/*
+ * Entry of callback function with boolean result
+ */
+DUK_LOCAL duk_ret_t promise_cb_with_bool(duk_context *ctx)
+{
+	duk_bool_t resolved;
+
+	/* [ promise result value/reason ] */
+	resolved = duk_require_boolean(ctx, 1);
+	duk_remove(ctx, 1);
+	/* [ promise value/reason ] */
+	return promise_transition(ctx, resolved);
+}
+
+/*
+ * Get callback function with boolean result and promise object
+ */
+DUK_INTERNAL void dux_promise_get_cb_with_bool(duk_context *ctx, duk_idx_t func_idx)
+{
+	/* [ ... func:func_idx ... ] */
+
+	func_idx = duk_normalize_index(ctx, func_idx);
+
+	if (!duk_is_null_or_undefined(ctx, func_idx))
+	{
+		duk_require_callable(ctx, func_idx);
+		duk_push_undefined(ctx);
+		/* [ ... func:func_idx ... undefined ] */
+		return;
+	}
+
+	/*
+	 * Create a promise which is converted to callback function
+	 * with (<bool> result, value)
+	 */
+	duk_push_object(ctx);
+	duk_push_heap_stash(ctx);
+	/* [ ... undef:func_idx ... obj stash ] */
+	duk_get_prop_string(ctx, -1, DUX_IPK_PROMISE);
+	/* [ ... undef:func_idx ... obj stash constructor ] */
+	duk_get_prop_string(ctx, -1, "prototype");
+	/* [ ... undef:func_idx ... obj stash constructor proto ] */
+	duk_set_prototype(ctx, -4);
+	/* [ ... undef:func_idx ... promise stash constructor ] */
+	duk_pop_2(ctx);
+	/* [ ... undef:func_idx ... promise ] */
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	/* [ ... undef:func_idx ... promise ] */
+	duk_push_c_function(ctx, promise_cb_with_bool, 3);
+	duk_dup(ctx, -2);
+	dux_bind_arguments(ctx, 1);
+	/* [ ... undef:func_idx ... promise bound_func ] */
+	duk_replace(ctx, func_idx);
+	/* [ ... bound_func:func_idx ... promise ] */
 }
 
 #endif  /* !DUX_OPT_NO_PROMISE && !DUX_OPT_STANDARD_PROMISE */
