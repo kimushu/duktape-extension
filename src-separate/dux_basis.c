@@ -18,6 +18,7 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 		} \
 	} while (0)
 
+	INIT(promise);
 	INIT(thrpool);
 
 	INIT(console);
@@ -51,6 +52,7 @@ DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 		} \
 	} while (0)
 
+	TICK(promise);
 	TICK(thrpool);
 
 	TICK(console);
