@@ -540,8 +540,6 @@ DUK_LOCAL duk_ret_t promise_all_resolver(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t promise_first_rejector(duk_context *ctx)
 {
-	duk_uarridx_t idx;
-
 	/* [ promise child ] */
 	if (duk_has_prop_string(ctx, 0, DUX_IPK_PROMISE_VALUE))
 	{
