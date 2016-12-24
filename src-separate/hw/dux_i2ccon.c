@@ -158,22 +158,19 @@ DUK_LOCAL duk_ret_t i2ccon_proto_writeAndRead_body(duk_context *ctx,
 		/* [ undefined buf/undefined callback ] */
 	}
 
-	if (duk_is_null_or_undefined(ctx, 2))
-	{
-		// TODO: Promise support
-		return DUK_RET_UNSUPPORTED_ERROR;
-	}
-	else
-	{
-		duk_require_function(ctx, 2);
-	}
-	/* [ buf/string/undefined buf/undefined func ] */
+	dux_promise_get_cb_with_bool(ctx, 2);
+	/* [ buf/string/undefined buf/undefined func promise/undefined ] */
+	duk_insert(ctx, 0);
+	/* [ promise/undefined buf/string/undefined buf/undefined func ] */
 
 	duk_push_this(ctx);
-	duk_get_prop_string(ctx, 3, DUX_IPK_I2CCON_AUX);
-	/* [ buf/string/undefined buf/undefined func this obj ] */
+	duk_get_prop_string(ctx, 4, DUX_IPK_I2CCON_AUX);
+	/* [ promise/undefined buf/string/undefined buf/undefined func this obj ] */
 
-	return (*data->transfer)(ctx, data);
+	(*data->transfer)(ctx, data);
+
+	/* [ promise/undefined ] */
+	return 1; /* return promise or undefined */
 }
 
 /*

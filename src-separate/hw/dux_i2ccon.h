@@ -9,7 +9,7 @@
 
 typedef struct dux_i2ccon_data
 {
-	duk_ret_t (*transfer)(duk_context *ctx, struct dux_i2ccon_data *data);
+	void (*transfer)(duk_context *ctx, struct dux_i2ccon_data *data);
 	duk_ret_t (*update_bitrate)(duk_context *ctx, struct dux_i2ccon_data *data);
 	duk_uint_t slaveAddress;
 	duk_uint_t bitrate;

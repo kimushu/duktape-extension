@@ -187,31 +187,32 @@ DUK_LOCAL duk_ret_t i2ccon_completer(duk_context *ctx)
 /*
  * Implementation of I2CConnection.prototype.{read,writeAndRead,write}
  */
-DUK_LOCAL duk_ret_t i2ccon_transfer(duk_context *ctx, dux_i2ccon_data_peridot *data)
+DUK_LOCAL void i2ccon_transfer(duk_context *ctx, dux_i2ccon_data_peridot *data)
 {
-	/* [ writedata readbuf func this thrpool:4 ] */
-	duk_insert(ctx, 0);
-	/* [ thrpool writedata readbuf func this:4 ] */
-	duk_push_array(ctx);
-	duk_swap(ctx, 1, 5);
-	/* [ thrpool arr readbuf func this:4 writedata:5 ] */
-	duk_put_prop_index(ctx, 1, I2C_BLKIDX_WRITEDATA);
-	/* [ thrpool arr readbuf func this:4 ] */
-	duk_put_prop_index(ctx, 1, I2C_BLKIDX_THIS);
-	/* [ thrpool arr readbuf func ] */
-	duk_put_prop_index(ctx, 1, I2C_BLKIDX_CALLBACK);
-	/* [ thrpool arr readbuf ] */
-	duk_put_prop_index(ctx, 1, I2C_BLKIDX_READBUF);
-	/* [ thrpool arr ] */
-	duk_push_pointer(ctx, data);
-	duk_put_prop_index(ctx, 1, I2C_BLKIDX_DATA);
-	/* [ thrpool arr ] */
-	duk_push_uint(ctx, data->clkdiv);
-	duk_put_prop_index(ctx, 1, I2C_BLKIDX_CLKDIV);
-	/* [ thrpool arr ] */
-	dux_thrpool_queue(ctx, 0, i2ccon_worker, i2ccon_completer);
+	duk_idx_t job_idx;
 
-	return 0; /* return undefined */
+	/* [ ... writedata:-5 readbuf:-4 func:-3 this:-2 thrpool:-1 ] */
+	duk_insert(ctx, -5);
+	/* [ ... thrpool:-5 writedata:-4 readbuf:-3 func:-2 this:-1 ] */
+	duk_push_array(ctx);
+	/* [ ... thrpool:-6 writedata:-5 readbuf:-4 func:-3 this:-2 arr:-1 ] */
+	job_idx = duk_normalize_index(ctx, -5);
+	duk_swap(ctx, -1, job_idx);
+	/* [ ... thrpool:-6 arr:-5(job_idx) readbuf:-4 func:-3 this:-2 writedata:-1 ] */
+	duk_put_prop_index(ctx, job_idx, I2C_BLKIDX_WRITEDATA);
+	duk_put_prop_index(ctx, job_idx, I2C_BLKIDX_THIS);
+	duk_put_prop_index(ctx, job_idx, I2C_BLKIDX_CALLBACK);
+	duk_put_prop_index(ctx, job_idx, I2C_BLKIDX_READBUF);
+	/* [ ... thrpool:-2 arr:-1 ] */
+	duk_push_pointer(ctx, data);
+	duk_put_prop_index(ctx, job_idx, I2C_BLKIDX_DATA);
+	duk_push_uint(ctx, data->clkdiv);
+	duk_put_prop_index(ctx, job_idx, I2C_BLKIDX_CLKDIV);
+	/* [ ... thrpool:-2 arr:-1 ] */
+	dux_thrpool_queue(ctx, -2, i2ccon_worker, i2ccon_completer);
+	/* [ ... thrpool:-1 ] */
+	duk_pop(ctx);
+	/* [ ... ] */
 }
 
 /*
@@ -273,7 +274,7 @@ DUK_LOCAL duk_ret_t i2c_connect_body(duk_context *ctx, i2c_pins_t *pins)
 	data = (dux_i2ccon_data_peridot *)duk_get_buffer(ctx, -1, NULL);
 
 	data->common.transfer =
-		(duk_ret_t (*)(duk_context *, dux_i2ccon_data *))i2ccon_transfer;
+		(void (*)(duk_context *, dux_i2ccon_data *))i2ccon_transfer;
 	data->common.update_bitrate =
 		(duk_ret_t (*)(duk_context *, dux_i2ccon_data *))i2ccon_update_bitrate;
 	data->common.slaveAddress = slaveAddress;
