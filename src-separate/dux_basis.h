@@ -59,6 +59,24 @@ DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 }
 
 /*
+ * Bind arguments with this value (Function.bind(thisArg, args...))
+ *
+ * [ func thisArg arg1 ... argN ]  ->  [ bound_func ]
+ */
+DUK_LOCAL
+DUK_INLINE void dux_bind_this_arguments(duk_context *ctx, duk_idx_t nargs)
+{
+	/* [ ... func thisArg arg1 ... argN ] */
+	duk_push_string(ctx, "bind");
+	duk_insert(ctx, -(2 + nargs));
+	/* [ ... func "bind" thisArg arg1 ... argN ] */
+	duk_call_prop(ctx, -(3 + nargs), (2 + nargs));
+	/* [ ... func bound_func ] */
+	duk_replace(ctx, -2);
+	/* [ ... bound_func ] */
+}
+
+/*
  * Define multiple properties
  */
 DUK_LOCAL
@@ -116,7 +134,9 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 		const dux_property_list_entry *static_props,
 		const dux_property_list_entry *prototype_props)
 {
+	/* [ ... ] */
 	duk_idx_t result = dux_push_named_c_function(ctx, name, func, nargs);
+	/* [ ... constructor ] */
 	if (static_funcs)
 	{
 		duk_put_function_list(ctx, -1, static_funcs);
@@ -128,6 +148,7 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 	if (prototype_funcs || prototype_props)
 	{
 		duk_push_object(ctx);
+		/* [ ... constructor obj ] */
 		if (prototype_funcs)
 		{
 			duk_put_function_list(ctx, -1, prototype_funcs);
@@ -137,6 +158,7 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 			dux_put_property_list(ctx, -1, prototype_props);
 		}
 		duk_put_prop_string(ctx, -2, "prototype");
+		/* [ ... constructor ] */
 	}
 	return result;
 }
