@@ -45,14 +45,14 @@ DUK_INTERNAL_DECL void dux_push_inherited_object(duk_context *ctx, duk_idx_t sup
 DUK_LOCAL
 DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 {
-	/* [ ... func ] */
+	/* [ ... func arg1 ... argN ] */
 	duk_push_string(ctx, "bind");
 	duk_insert(ctx, -(1 + nargs));
 	/* [ ... func "bind" arg1 ... argN ] */
 	duk_push_undefined(ctx);
 	duk_insert(ctx, -(1 + nargs));
 	/* [ ... func "bind" undefined arg1 ... argN ] */
-	duk_call_prop(ctx, -(3 + nargs), (2 + nargs));
+	duk_call_prop(ctx, -(3 + nargs), (1 + nargs));
 	/* [ ... func bound_func ] */
 	duk_replace(ctx, -2);
 	/* [ ... bound_func ] */
