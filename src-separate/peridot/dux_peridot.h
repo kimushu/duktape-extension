@@ -18,7 +18,8 @@ DUK_INTERNAL_DECL duk_errcode_t dux_peridot_init(duk_context *ctx);
 #define dux_peridot_tick(ctx)   (DUX_TICK_RET_JOBLESS)
 
 DUK_INTERNAL_DECL duk_bool_t dux_push_peridot_stash(duk_context *ctx);
-DUK_INTERNAL_DECL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, const char *key);
+DUK_INTERNAL_DECL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index);
+DUK_INTERNAL_DECL duk_int_t dux_get_peridot_pin_by_key(duk_context *ctx, duk_idx_t index, ...);
 
 #else   /* DUX_USE_BOARD_PERIDOT */
 

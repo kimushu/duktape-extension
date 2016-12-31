@@ -85,8 +85,8 @@ dux_i2ccon_data_peridot;
 DUK_LOCAL duk_ret_t i2c_get_pins(duk_context *ctx, duk_idx_t index, i2c_pins_t *pins)
 {
 	pins->uint = 0;
-	pins->scl = dux_get_peridot_pin(ctx, index, "scl");
-	pins->sda = dux_get_peridot_pin(ctx, index, "sda");
+	pins->scl = dux_get_peridot_pin_by_key(ctx, index, "scl", NULL);
+	pins->sda = dux_get_peridot_pin_by_key(ctx, index, "sda", NULL);
 	if ((pins->scl < 0) || (pins->sda < 0))
 	{
 		return DUK_RET_RANGE_ERROR;

@@ -18,6 +18,7 @@
 #include <peridot_swi_regs.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdarg.h>
 
 /*
  * Constants
@@ -115,39 +116,14 @@ DUK_INTERNAL duk_bool_t dux_push_peridot_stash(duk_context *ctx)
 }
 
 /*
- * Get Peridot pin assign from object
+ * Get Peridot pin assign from value
  */
-DUK_INTERNAL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, const char *key)
+DUK_INTERNAL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index)
 {
-	duk_int_t pin;
 	const char *str;
+	duk_int_t pin;
 
-	if (!key)
-	{
-		duk_dup(ctx, index);
-	}
-	else if (!duk_get_prop_string(ctx, index, key))
-	{
-		duk_pop(ctx);
-		char *ukey = alloca(strlen(key) + 1);
-		char *dest;
-		const char *src;
-		for (dest = ukey, src = key;;)
-		{
-			if ((*dest++ = toupper((int)*src++)) == '\0')
-			{
-				break;
-			}
-		}
-
-		if (!duk_get_prop_string(ctx, index, ukey))
-		{
-			duk_pop(ctx);
-			return -1;
-		}
-	}
-
-	str = duk_get_string(ctx, -1);
+	str = duk_get_string(ctx, index);
 	if (str)
 	{
 		// String form
@@ -160,23 +136,108 @@ DUK_INTERNAL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, co
 			++str;
 		}
 		pin = strtol(str, &end, 10);
-		goto check;
+		if (*end != '\0')
+		{
+			return DUK_RET_TYPE_ERROR;
+		}
 	}
-	else if (duk_is_number(ctx, -1))
+	else if (duk_is_number(ctx, index))
 	{
-		pin = (duk_int_t)duk_get_uint(ctx, -1);
-		goto check;
+		pin = duk_get_int(ctx, index);
+	}
+	else
+	{
+		return DUK_RET_TYPE_ERROR;
 	}
 
-	duk_pop(ctx);
-	return -1;
-
-check:
-	duk_pop(ctx);
 	if ((pin < DUX_PERIDOT_PIN_MIN) || (pin > DUX_PERIDOT_PIN_MAX))
 	{
-		return -1;
+		return DUK_RET_RANGE_ERROR;
 	}
+
+	return pin;
+}
+
+/*
+ * Copy string with conversion to upper case
+ */
+DUK_LOCAL int strcpy_toupper(char *dest, const char *src)
+{
+	int converted = 0;
+	char ch, cch;
+	for (; (ch = *src++) != '\0';)
+	{
+		cch = toupper((int)ch);
+		if (cch != ch)
+		{
+			++converted;
+		}
+		*dest++ = cch;
+	}
+	*dest = '\0';
+	return converted;
+}
+
+/*
+ * Get Peridot pin assign from object
+ */
+DUK_INTERNAL duk_int_t dux_get_peridot_pin_by_key(duk_context *ctx, duk_idx_t index, ...)
+{
+	duk_int_t pin;
+	const char *key;
+	va_list keys;
+
+	pin = DUK_RET_ERROR;
+	key = NULL;
+
+	va_start(keys, index);
+	for (;;)
+	{
+		if (key)
+		{
+			const char *lkey = key;
+			char *ukey = alloca(strlen(lkey) + 1);
+			key = NULL;
+			if (!strcpy_toupper(ukey, lkey))
+			{
+				continue;
+			}
+			if (!duk_get_prop_string(ctx, index, ukey))
+			{
+				duk_pop(ctx);
+				continue;
+			}
+		}
+		else
+		{
+			key = va_arg(keys, const char *);
+			if (!key)
+			{
+				break;
+			}
+			if (!duk_get_prop_string(ctx, index, key))
+			{
+				duk_pop(ctx);
+				continue;
+			}
+		}
+
+		if (pin >= 0)
+		{
+			duk_pop(ctx);
+			pin = DUK_RET_TYPE_ERROR;
+			break;
+		}
+
+		pin = dux_get_peridot_pin(ctx, -1);
+		duk_pop(ctx);
+		if (pin < 0)
+		{
+			break;
+		}
+	}
+	va_end(keys);
+
 	return pin;
 }
 
