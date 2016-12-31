@@ -16,9 +16,11 @@ SOURCES = \
 	linux/dux_hardware_io_linux.c \
 	hw/dux_paraio.c \
 	hw/dux_i2ccon.c \
+	hw/dux_spicon.c \
 	peridot/dux_peridot.c \
 		peridot/dux_peridot_gpio.c \
-		peridot/dux_peridot_i2c.c
+		peridot/dux_peridot_i2c.c \
+		peridot/dux_peridot_spi.c
 
 PREAMBLE = dux_preamble.h
 DEP = .dux_all.dep

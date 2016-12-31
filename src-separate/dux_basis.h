@@ -36,6 +36,9 @@ dux_property_list_entry;
 
 DUK_INTERNAL_DECL void dux_report_error(duk_context *ctx);
 DUK_INTERNAL_DECL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_idx);
+DUK_INTERNAL_DECL void *dux_to_byte_buffer(duk_context *ctx, duk_idx_t index, duk_size_t *out_size);
+DUK_INTERNAL_DECL duk_int_t dux_require_int_range(duk_context *ctx, duk_idx_t index,
+		duk_int_t minimum, duk_int_t maximum);
 
 /*
  * Bind arguments (Function.bind(undefined, args...))

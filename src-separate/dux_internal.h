@@ -33,10 +33,12 @@ extern "C" {
 #include "hw/dux_hardware_io.h"
 #include "hw/dux_paraio.h"
 #include "hw/dux_i2ccon.h"
+#include "hw/dux_spicon.h"
 
 #include "peridot/dux_peridot.h"
 #include "peridot/dux_peridot_gpio.h"
 #include "peridot/dux_peridot_i2c.h"
+#include "peridot/dux_peridot_spi.h"
 
 #ifdef __cplusplus
 } /* extern "C" */

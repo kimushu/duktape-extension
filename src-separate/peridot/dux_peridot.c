@@ -89,6 +89,7 @@ DUK_INTERNAL duk_errcode_t dux_peridot_init(duk_context *ctx)
 
 	INIT(gpio);
 	INIT(i2c);
+	INIT(spi);
 
 #undef INIT
 
