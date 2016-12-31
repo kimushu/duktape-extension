@@ -185,7 +185,7 @@ DUK_LOCAL duk_ret_t i2ccon_completer(duk_context *ctx)
 }
 
 /*
- * Implementation of I2CConnection.prototype.{read,writeAndRead,write}
+ * Implementation of I2CConnection.prototype.{read,transfer,write}
  */
 DUK_LOCAL void i2ccon_transfer(duk_context *ctx, dux_i2ccon_data_peridot *data)
 {

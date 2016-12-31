@@ -4,18 +4,18 @@
  *      constructor(<PlainBuffer> data) {
  *      }
  *
- *      read(<uint> readlen, <Function> callback) {
+ *      read(<uint> readlen [,<Function> callback]) {
  *        return;
  *      }
  *
- *      write(<ArrayBuffer/string> writedata,
- *            <Function> callback) {
+ *      transfer(<ArrayBuffer/string> writedata,
+ *               <uint> readlen [,
+ *               <Function> callback]) {
  *        return;
  *      }
  *
- *      writeAndRead(<ArrayBuffer/string> writedata,
- *                   <uint> readlen,
- *                   <Function> callback) {
+ *      write(<ArrayBuffer/string> writedata [,
+ *            <Function> callback]) {
  *        return;
  *      }
  *
@@ -91,8 +91,8 @@ DUK_LOCAL duk_ret_t i2ccon_constructor(duk_context *ctx)
 /*
  * Common implementation of I2CConnection read/write functions
  */
-DUK_LOCAL duk_ret_t i2ccon_proto_writeAndRead_body(duk_context *ctx,
-                                                   duk_bool_t write)
+DUK_LOCAL duk_ret_t i2ccon_proto_transfer_body(duk_context *ctx,
+                                               duk_bool_t write)
 {
 	dux_i2ccon_data *data = i2ccon_get_data(ctx);
 	duk_uint_t readlen;
@@ -182,16 +182,16 @@ DUK_LOCAL duk_ret_t i2ccon_proto_read(duk_context *ctx)
 	duk_push_undefined(ctx);
 	duk_insert(ctx, 0);
 	/* [ undefined uint func ] */
-	return i2ccon_proto_writeAndRead_body(ctx, 0);
+	return i2ccon_proto_transfer_body(ctx, 0);
 }
 
 /*
- * Entry of I2CConnection.prototype.writeAndRead()
+ * Entry of I2CConnection.prototype.transfer()
  */
-DUK_LOCAL duk_ret_t i2ccon_proto_writeAndRead(duk_context *ctx)
+DUK_LOCAL duk_ret_t i2ccon_proto_transfer(duk_context *ctx)
 {
 	/* [ obj uint func ] */
-	return i2ccon_proto_writeAndRead_body(ctx, 1);
+	return i2ccon_proto_transfer_body(ctx, 1);
 }
 
 /*
@@ -203,7 +203,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_write(duk_context *ctx)
 	duk_push_uint(ctx, 0);
 	duk_swap(ctx, 1, 2);
 	/* [ obj 0 func ] */
-	return i2ccon_proto_writeAndRead_body(ctx, 1);
+	return i2ccon_proto_transfer_body(ctx, 1);
 }
 
 /*
@@ -265,8 +265,8 @@ DUK_LOCAL duk_ret_t i2ccon_proto_slaveAddress_getter(duk_context *ctx)
  */
 DUK_LOCAL const duk_function_list_entry i2ccon_proto_funcs[] = {
 	{ "read", i2ccon_proto_read, 2 },
+	{ "transfer", i2ccon_proto_transfer, 3 },
 	{ "write", i2ccon_proto_write, 2 },
-	{ "writeAndRead", i2ccon_proto_writeAndRead, 3 },
 	{ NULL, NULL, 0 }
 };
 
