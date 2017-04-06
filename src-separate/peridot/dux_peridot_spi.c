@@ -449,7 +449,7 @@ DUK_LOCAL duk_ret_t spi_proto_pins_getter(duk_context *ctx)
 /*
  * List of class methods
  */
-DUK_LOCAL duk_function_list_entry spi_funcs[] = {
+DUK_LOCAL const duk_function_list_entry spi_funcs[] = {
 	{ "connect", spi_connect, 2 },
 	{ NULL, NULL, 0 }
 };
@@ -457,7 +457,7 @@ DUK_LOCAL duk_function_list_entry spi_funcs[] = {
 /*
  * List of prototype methods
  */
-DUK_LOCAL duk_function_list_entry spi_proto_funcs[] = {
+DUK_LOCAL const duk_function_list_entry spi_proto_funcs[] = {
 	{ "connect", spi_proto_connect, 2 },
 	{ NULL, NULL, 0 }
 };
@@ -465,7 +465,7 @@ DUK_LOCAL duk_function_list_entry spi_proto_funcs[] = {
 /*
  * List of prototype properties
  */
-DUK_LOCAL dux_property_list_entry spi_proto_props[] = {
+DUK_LOCAL const dux_property_list_entry spi_proto_props[] = {
 	{ "pins", spi_proto_pins_getter, NULL },
 	{ NULL, NULL, NULL }
 };

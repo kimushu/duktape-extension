@@ -39,6 +39,7 @@ extern "C" {
 #include "peridot/dux_peridot_gpio.h"
 #include "peridot/dux_peridot_i2c.h"
 #include "peridot/dux_peridot_spi.h"
+#include "peridot/dux_peridot_servo.h"
 
 #ifdef __cplusplus
 } /* extern "C" */

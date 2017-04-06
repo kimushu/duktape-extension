@@ -20,7 +20,8 @@ SOURCES = \
 	peridot/dux_peridot.c \
 		peridot/dux_peridot_gpio.c \
 		peridot/dux_peridot_i2c.c \
-		peridot/dux_peridot_spi.c
+		peridot/dux_peridot_spi.c \
+		peridot/dux_peridot_servo.c
 
 PREAMBLE = dux_preamble.h
 DEP = .dux_all.dep
