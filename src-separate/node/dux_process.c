@@ -258,7 +258,7 @@ DUK_INTERNAL duk_errcode_t dux_process_init(duk_context *ctx)
 	if (!data)
 	{
 		duk_pop_3(ctx);
-		return DUK_ERR_ALLOC_ERROR;
+		return DUK_ERR_ERROR;
 	}
 	memset(data, 0, sizeof(dux_process_data));
 	duk_put_prop_string(ctx, -2, DUX_IPK_PROCESS_DATA);

@@ -173,7 +173,7 @@ DUK_LOCAL duk_ret_t i2ccon_completer(duk_context *ctx)
 		/* Transfer failed */
 		duk_push_false(ctx);
 		/* [ job int func false ] */
-		duk_push_error_object(ctx, DUK_ERR_API_ERROR, "I2C transfer failed (%d)", ret);
+		duk_push_error_object(ctx, DUK_ERR_ERROR, "I2C transfer failed (%d)", ret);
 		/* [ job int func false err ] */
 		nargs = 2;
 	}
@@ -310,7 +310,7 @@ DUK_LOCAL duk_ret_t i2c_connect_body(duk_context *ctx, i2c_pins_t *pins)
 		/* [ arr constructor buf enum ] */
 	}
 
-	duk_error(ctx, DUK_ERR_UNSUPPORTED_ERROR,
+	(void)duk_generic_error(ctx,
 			"no driver supports (scl=%u,sda=%u)", pins->scl, pins->sda);
 	/* unreachable */
 	return 0;
@@ -471,7 +471,7 @@ DUK_INTERNAL duk_errcode_t dux_peridot_i2c_init(duk_context *ctx)
 		// No driver
 		duk_pop(ctx);
 		/* [ ... obj ] */
-		return DUK_ERR_UNSUPPORTED_ERROR;
+		return DUK_ERR_ERROR;
 	}
 
 	duk_put_prop_string(ctx, -2, "I2C");

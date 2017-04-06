@@ -172,8 +172,7 @@ DUK_INTERNAL duk_int_t dux_require_int_range(duk_context *ctx, duk_idx_t index,
 	duk_int_t value = duk_require_int(ctx, index);
 	if ((value < minimum) || (value > maximum))
 	{
-		duk_error(ctx, DUK_ERR_RANGE_ERROR, "value out of range: %d", value);
-		duk_throw(ctx);
+		(void)duk_range_error(ctx, "value out of range: %d", value);
 		/* unreachable */
 	}
 	return value;

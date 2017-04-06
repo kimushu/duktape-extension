@@ -70,8 +70,7 @@ DUK_LOCAL duk_ret_t console_proto_assert(duk_context *ctx)
 	}
 	duk_remove(ctx, 0);
 	dux_util_format(ctx);
-	duk_push_error_object(ctx, DUK_ERR_ASSERTION_ERROR, duk_safe_to_string(ctx, -1));
-	duk_throw(ctx);
+	(void)duk_generic_error(ctx, "Assertion failed: %s", duk_safe_to_string(ctx, -1));
 	/* unreachable */
 	return 0;
 }
@@ -123,7 +122,7 @@ DUK_LOCAL duk_ret_t global_console_getter(duk_context *ctx)
 	/* [ global stash constructor constructor ] */
 	if (duk_pnew(ctx, 0) != DUK_EXEC_SUCCESS)
 	{
-		duk_throw(ctx);
+		(void)duk_throw(ctx);
 		/* unreachable */
 		return 0;
 	}

@@ -273,7 +273,7 @@ DUK_LOCAL void thrpool_increase(duk_context *ctx, dux_thrpool_pool *pool)
 		if (pthread_create(&thread->tid, NULL, (void *(*)(void *))thrpool_thread, thread) != 0)
 		{
 			thread->state = THRPOOL_STATE_DEAD;
-			duk_push_error_object(ctx, DUK_ERR_INTERNAL_ERROR, "failed to create a new thread");
+			duk_push_error_object(ctx, DUK_ERR_ERROR, "failed to create a new thread");
 			dux_report_error(ctx);
 			duk_pop(ctx);
 			return;
@@ -468,14 +468,14 @@ DUK_INTERNAL void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk
 	/* [ ... ] */
 	if (min_threads > max_threads)
 	{
-		duk_error(ctx, DUK_ERR_RANGE_ERROR,
+		(void)duk_range_error(ctx,
 				"max_threads must be equal or larger than min_threads");
 		// never returns
 	}
 
 	if (max_threads > MAX_THREADS)
 	{
-		duk_error(ctx, DUK_ERR_RANGE_ERROR,
+		(void)duk_range_error(ctx,
 				"max_threads cannot exceed %u", MAX_THREADS);
 		// never returns
 	}
@@ -551,7 +551,7 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 	/* Check job */
 	if (!duk_is_array(ctx, -1))
 	{
-		duk_error(ctx, DUK_ERR_TYPE_ERROR, "job object must be an array");
+		(void)duk_type_error(ctx, "job object must be an array");
 		// never returns
 	}
 	num_blocks = duk_get_length(ctx, -1);

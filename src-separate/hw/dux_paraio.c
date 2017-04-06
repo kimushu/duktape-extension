@@ -878,7 +878,7 @@ DUK_LOCAL duk_ret_t paraio_manip_config_enabled(duk_context *ctx, void *param,
 {
 	if ((bits & enabled) != bits)
 	{
-		return DUK_RET_API_ERROR;
+		return DUK_RET_ERROR;
 	}
 	return 0;
 }

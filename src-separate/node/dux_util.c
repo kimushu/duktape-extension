@@ -92,7 +92,7 @@ DUK_LOCAL duk_ret_t util_format(duk_context *ctx)
 DUK_LOCAL duk_ret_t util_inspect(duk_context *ctx)
 {
 	/* TODO */
-	return DUK_RET_UNSUPPORTED_ERROR;
+	return DUK_RET_ERROR;
 }
 
 /*

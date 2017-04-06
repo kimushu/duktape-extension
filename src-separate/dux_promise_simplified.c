@@ -496,7 +496,7 @@ DUK_LOCAL duk_ret_t promise_all_resolver(duk_context *ctx)
 	waiting = duk_get_uint(ctx, 1);
 	if (waiting == 0)
 	{
-		return DUK_RET_INTERNAL_ERROR;
+		return DUK_RET_ERROR;
 	}
 	if (--waiting > 0)
 	{
@@ -558,7 +558,7 @@ DUK_LOCAL duk_ret_t promise_first_rejector(duk_context *ctx)
 
 	if (!duk_get_prop_string(ctx, 1, DUX_IPK_PROMISE_VALUE))
 	{
-		return DUK_RET_INTERNAL_ERROR;
+		return DUK_RET_ERROR;
 	}
 	/* [ promise child reason ] */
 	duk_replace(ctx, 1);
@@ -725,7 +725,7 @@ DUK_LOCAL duk_ret_t promise_race_resolver(duk_context *ctx)
 	/* [ promise child ] */
 	if (!duk_get_prop_string(ctx, 1, DUX_IPK_PROMISE_VALUE))
 	{
-		return DUK_RET_INTERNAL_ERROR;
+		return DUK_RET_ERROR;
 	}
 	/* [ promise child value ] */
 	duk_replace(ctx, 1);

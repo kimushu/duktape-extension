@@ -275,7 +275,7 @@ DUK_LOCAL duk_ret_t servo_proto_rawValue_getter(duk_context *ctx)
 	value = peridot_servo_get_value(pin);
 	if (value < 0)
 	{
-		return DUK_RET_API_ERROR;
+		return DUK_RET_ERROR;
 	}
 	duk_push_int(ctx, value);
 	return 1; /* return <int>; */
@@ -309,7 +309,7 @@ DUK_LOCAL duk_ret_t servo_proto_rawValue_setter(duk_context *ctx)
 	}
 	if (peridot_servo_set_value(pin, value) < 0)
 	{
-		return DUK_RET_API_ERROR;
+		return DUK_RET_ERROR;
 	}
 	return 0; /* return undefined; */
 }
@@ -408,7 +408,7 @@ DUK_LOCAL duk_ret_t servo_constructor(duk_context *ctx)
 	/* [ obj(pin) ] */
 	if (!duk_is_constructor_call(ctx))
 	{
-		return DUK_ERR_TYPE_ERROR;
+		return DUK_RET_TYPE_ERROR;
 	}
 
 	pin = dux_get_peridot_pin(ctx, 0);
@@ -418,13 +418,9 @@ DUK_LOCAL duk_ret_t servo_constructor(duk_context *ctx)
 	}
 
 	result = peridot_servo_configure_pwm(pin, 0);
-	if (result == -ENOTSUP)
+	if (result < 0)
 	{
-		return DUK_ERR_UNSUPPORTED_ERROR;
-	}
-	else if (result < 0)
-	{
-		return DUK_ERR_API_ERROR;
+		return DUK_RET_ERROR;
 	}
 
 	duk_push_this(ctx);

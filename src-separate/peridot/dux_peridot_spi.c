@@ -194,7 +194,7 @@ DUK_LOCAL duk_ret_t spicon_completer(duk_context *ctx)
 		/* Transfer failed */
 		duk_push_false(ctx);
 		/* [ job int func false ] */
-		duk_push_error_object(ctx, DUK_ERR_API_ERROR, "SPI transfer failed (%d)", ret);
+		duk_push_error_object(ctx, DUK_ERR_ERROR, "SPI transfer failed (%d)", ret);
 		/* [ job int func false err ] */
 		nargs = 2;
 	}
@@ -334,7 +334,7 @@ DUK_LOCAL duk_ret_t spi_connect_body(duk_context *ctx, spi_pins_t *pins)
 		/* [ arr constructor buf enum ] */
 	}
 
-	duk_error(ctx, DUK_ERR_UNSUPPORTED_ERROR,
+	(void)duk_generic_error(ctx,
 			"no driver supports (sclk=%u,mosi=%d,miso=%d)",
 			pins->sclk, pins->mosi, pins->miso);
 	/* unreachable */
@@ -510,7 +510,7 @@ DUK_INTERNAL duk_errcode_t dux_peridot_spi_init(duk_context *ctx)
 		// No driver
 		duk_pop(ctx);
 		/* [ ... obj ] */
-		return DUK_ERR_UNSUPPORTED_ERROR;
+		return DUK_ERR_ERROR;
 	}
 
 	duk_put_prop_string(ctx, -2, "SPI");
