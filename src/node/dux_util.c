@@ -228,7 +228,7 @@ DUK_INTERNAL duk_errcode_t dux_util_init(duk_context *ctx)
 #if !defined(DUX_OPT_NO_PROMISE)
 	duk_push_c_function(ctx, util_promisify, 1);
 	/* [ ... util func ] */
-	duk_put_prop_string(ctx, -2, "custom");
+	duk_push_string(ctx, "custom");
 	duk_push_string(ctx, DUX_SYM_PROMISIFY_CUSTOM);
 	/* [ ... util func "custom" symbol ] */
 	duk_def_prop(ctx, -3, DUK_DEFPROP_HAVE_VALUE |
