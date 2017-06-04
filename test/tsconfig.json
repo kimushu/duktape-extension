@@ -8,9 +8,5 @@
     },
     "files": [
         "../typings/index.d.ts"
-    ],
-    "exclude": [
-        "duktape-*/**/*",
-        "downloads/*"
     ]
 }
