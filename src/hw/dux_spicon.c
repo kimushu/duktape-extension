@@ -201,7 +201,7 @@ DUK_LOCAL duk_ret_t spicon_proto_read(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t spicon_proto_transfer(duk_context *ctx)
 {
-	duk_uint_t write_len;
+	duk_size_t write_len;
 	duk_uint_t read_len;
 	duk_uint_t filler;
 
