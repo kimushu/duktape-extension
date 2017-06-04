@@ -1,1 +1,4 @@
 .*.dep
+src/duktape.c
+src/duktape.h
+src/duk_config.h
