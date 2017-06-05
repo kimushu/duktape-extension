@@ -21,11 +21,12 @@ test: tester_host tsc
 
 .PHONY: tsc
 tsc:
+	cp $(DUX_DIR)/dux_all.d.ts typings/globals/dux/index.d.ts
 	$(shell npm bin)/tsc -p .
 
-.PHONY: typings
-typings:
-	$(MAKE) -C ../src $@
+.PHONY: dux
+dux:
+	$(MAKE) -C ../src
 
 tester_host: $(DUK_SOURCE) $(DUX_SOURCE) tester_host.c espresso.c
 	gcc -o $@ -I $(DUK_DIR) -I $(DUX_DIR) $(CFLAGS) $^ $(LIBS)

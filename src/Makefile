@@ -1,7 +1,7 @@
 DESTDIR = ../dist
 COMBINE = python ../tools/combine_src.py
 
-TARGETS = $(addprefix $(DESTDIR)/dux_all.,c h)
+TARGETS = $(addprefix $(DESTDIR)/,dux_all.c dux_all.h dux_all.d.ts)
 SOURCES = \
 	dux_basis.c \
 	dux_modules.c \
@@ -36,12 +36,8 @@ clean:
 	rm -f $(TARGETS) $(DEP)
 
 .PHONY: test
-test: $(TARGETS) typings
+test: $(TARGETS)
 	make -C ../test
-
-.PHONY: typings
-typings: $(wildcard $(SOURCES:.c=.d.ts))
-	cp --parents --target-directory ../test/typings/globals/dux $^
 
 .PRECIOUS: $(TARGETS)
 
@@ -56,3 +52,5 @@ $(DESTDIR)/dux_all.h: $(PREAMBLE) dux_all.h
 	mkdir -p $(dir $@)
 	cat $^ > $@ || (rm -f $@; false)
 
+$(DESTDIR)/dux_all.d.ts: $(wildcard $(SOURCES:.c=.d.ts))
+	cat $^ > $@
