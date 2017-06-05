@@ -92,7 +92,7 @@ DUK_LOCAL duk_ret_t timer_set(duk_context *ctx, duk_uint_t flags)
 	/* Construct timer handle */
 	desc->id = id;
 	desc->flags = flags;
-	desc->time_start = desc->time_prev = dux_timer_current();
+	desc->time_start = desc->time_prev = dux_timer_arch_current();
 	desc->time_next = desc->time_start + interval;
 	desc->interval = interval;
 
@@ -227,6 +227,7 @@ DUK_INTERNAL duk_errcode_t dux_timer_init(duk_context *ctx)
 	duk_put_function_list(ctx, -1, timer_funcs);
 	duk_pop_2(ctx);
 	/* [ ... ] */
+	dux_timer_arch_init();
 	return DUK_ERR_NONE;
 }
 
@@ -236,7 +237,7 @@ DUK_INTERNAL duk_errcode_t dux_timer_init(duk_context *ctx)
 DUK_INTERNAL duk_int_t dux_timer_tick(duk_context *ctx)
 {
 	/* [ ... ] */
-	duk_uint_t tick = dux_timer_current();
+	duk_uint_t tick = dux_timer_arch_current();
 	duk_int_t result = DUX_TICK_RET_JOBLESS;
 	dux_timer_desc *desc;
 	duk_uarridx_t id, free_id;

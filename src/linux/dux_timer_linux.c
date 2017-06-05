@@ -3,7 +3,11 @@
 #include "../dux_internal.h"
 #include <time.h>
 
-DUK_INTERNAL duk_uint_t dux_timer_current(void)
+DUK_INTERNAL void dux_timer_arch_init(void)
+{
+}
+
+DUK_INTERNAL duk_uint_t dux_timer_arch_current(void)
 {
 	struct timespec tp;
 	if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0)

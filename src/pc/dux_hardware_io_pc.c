@@ -1,4 +1,4 @@
-#if !defined(DUX_OPT_NO_HARDWARE_MODULES) && defined(__linux__)
+#if !defined(DUX_OPT_NO_HARDWARE_MODULES) && (defined(__linux__) || defined(__WIN32__))
 
 #include "../dux_internal.h"
 
@@ -12,4 +12,4 @@ DUK_INTERNAL void dux_hardware_write(volatile duk_uint_t *ptr, duk_uint_t val)
 	*ptr = val;
 }
 
-#endif  /* !DUX_OPT_NO_HARDWARE_MODULES && __linux__ */
+#endif  /* !DUX_OPT_NO_HARDWARE_MODULES && (__linux__ || __WIN32__) */

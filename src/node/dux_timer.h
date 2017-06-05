@@ -35,7 +35,8 @@ dux_timer_desc;
 DUK_INTERNAL_DECL duk_errcode_t dux_timer_init(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_timer_tick(duk_context *ctx);
 
-DUK_INTERNAL_DECL duk_uint_t dux_timer_current(void);
+DUK_INTERNAL_DECL void dux_timer_arch_init(void);
+DUK_INTERNAL_DECL duk_uint_t dux_timer_arch_current(void);
 
 #else   /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_TIMER */
 
