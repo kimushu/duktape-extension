@@ -1,24 +1,3 @@
-/*
- * ECMA functions:
- *    global.clearInterval(id)
- *    global.clearTimeout(id)
- *    global.setInterval(function, interval [, arg1, ..., argN])  // => id
- *    global.setTimeout(function, interval [, arg1, ..., argN])   // => id
- *
- * Internal data structure:
- *    heap_stash[DUX_IPK_TIMER] = new Array(
- *      <uint>,                 // [0] Next free ID
- *      <undefined>,            // [1] Unused
- *      <PlainBuffer for ID=1>, // [2]
- *      <Function for ID=1>,    // [3]
- *      <PlainBuffer for ID=2>, // [4]
- *      <Function for ID=2>,    // [5]
- *           :
- *      <PlainBuffer for ID=N>, // [N*2]
- *      <Function for ID=N>     // [N*2+1]
- *    );
- */
-
 #if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_TIMER)
 #include "../dux_internal.h"
 
@@ -139,7 +118,7 @@ DUK_LOCAL duk_ret_t timer_setTimeout(duk_context *ctx)
 DUK_LOCAL duk_ret_t timer_clear(duk_context *ctx, duk_uint_t flags)
 {
 	duk_uarridx_t id;
-	duk_uarridx_t next_id;
+	duk_uarridx_t free_id;
 	dux_timer_desc *desc;
 
 	/* [ ... uint ] */
@@ -175,8 +154,8 @@ DUK_LOCAL duk_ret_t timer_clear(duk_context *ctx, duk_uint_t flags)
 
 	duk_get_prop_index(ctx, -2, FREE_IDX);
 	/* [ ... uint arr buf uint ] */
-	next_id = duk_get_uint(ctx, -1);
-	if (id < next_id)
+	free_id = duk_get_uint(ctx, -1);
+	if (id < free_id)
 	{
 		duk_push_uint(ctx, id);
 		/* [ ... uint arr buf uint uint ] */
@@ -262,7 +241,11 @@ DUK_INTERNAL duk_int_t dux_timer_tick(duk_context *ctx)
 		}
 
 		result = DUX_TICK_RET_CONTINUE;
-		if (desc->time_prev < desc->time_next)
+		if (!(desc->flags & DUX_TIMER_STARTED)) {
+			desc->flags |= DUX_TIMER_STARTED;
+			continue;
+		}
+		if (desc->time_prev <= desc->time_next)
 		{
 			/*
 			 * No roll-over (P<N)
@@ -270,6 +253,13 @@ DUK_INTERNAL duk_int_t dux_timer_tick(duk_context *ctx)
 			 *            <------>             (continue)
 			 * [0.........P.......N.........M] (P=prev,N=next,M=max)
 			 *  --------->        <----------  (expire)
+			 *
+			 * --- or ---
+			 *
+			 * No interval (P==N)
+			 * 
+			 * [ 0..........P==N...........M ] (P=prev,N=next,M=max)
+			 *   <------------------------->   (expire)
 			 */
 			if ((desc->time_prev <= tick) && (tick < desc->time_next))
 			{

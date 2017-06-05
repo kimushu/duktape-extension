@@ -9,7 +9,8 @@
 
 enum
 {
-	DUX_TIMER_ONESHOT = (1 << 0),
+	DUX_TIMER_STARTED = (1 << 0),
+	DUX_TIMER_ONESHOT = (1 << 1),
 };
 
 /*
