@@ -1,5 +1,6 @@
 #include "duktape.h"
 #include <stdio.h>
+#include <stdarg.h>
 
 static const char ESPRESSO_DATA[] = "\xff" "espData";
 static const char ESPRESSO_ROOT[] = "\xff" "espRoot";
@@ -291,8 +292,15 @@ static const duk_function_list_entry espresso_funcs[] = {
 	{ NULL, NULL, 0 }
 };
 
-static void assert_do_throw(duk_context *ctx)
+static void assert_do_throw(duk_context *ctx, const char *format, ...)
 {
+	va_list args;
+	va_start(args, format);
+	if (duk_is_undefined(ctx, -1)) {
+		duk_pop(ctx);
+		duk_push_vsprintf(ctx, format, args);
+	}
+	va_end(args);
 	duk_error(ctx, DUK_ERR_ERROR, "assertion failed: %s", duk_safe_to_string(ctx, -1));
 }
 
@@ -300,7 +308,7 @@ static duk_ret_t assert_is_ok(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (!duk_to_boolean(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is truthy", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -309,7 +317,7 @@ static duk_ret_t assert_is_not_ok(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (duk_to_boolean(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is falsy", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -318,7 +326,7 @@ static duk_ret_t assert_exists(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (duk_is_null_or_undefined(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is neither null nor undefined", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -327,7 +335,7 @@ static duk_ret_t assert_not_exists(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (!duk_is_null_or_undefined(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is null or undefined", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -336,7 +344,7 @@ static duk_ret_t assert_is_function(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (!duk_is_callable(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is a function", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -345,7 +353,7 @@ static duk_ret_t assert_is_not_function(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (duk_is_callable(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is not a function", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -354,7 +362,8 @@ static duk_ret_t assert_instanceof(duk_context *ctx)
 {
 	/* [ value constructor message ] */
 	if (!duk_instanceof(ctx, 0, 1)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is an instance of '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
 	}
 	return 0;
 }
@@ -363,7 +372,8 @@ static duk_ret_t assert_not_instanceof(duk_context *ctx)
 {
 	/* [ value constructor message ] */
 	if (duk_instanceof(ctx, 0, 1)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is not an instance of '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
 	}
 	return 0;
 }
@@ -372,7 +382,7 @@ static duk_ret_t assert_is_undefined(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (!duk_is_undefined(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is undefined", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -381,7 +391,7 @@ static duk_ret_t assert_is_defined(duk_context *ctx)
 {
 	/* [ value message ] */
 	if (duk_is_undefined(ctx, 0)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' is not undefined", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -402,11 +412,12 @@ static duk_ret_t assert_throws(duk_context *ctx)
 	duk_swap(ctx, 0, 3);
 	if (result == 0) {
 		/* [ retval errorLike string message ] */
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "fn throws");
 	}
 	/* [ err errorLike string message ] */
 	if (!duk_is_undefined(ctx, 1) && !duk_instanceof(ctx, 0, 1)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' which fn throws is an instance of '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
 	}
 	if (!duk_is_undefined(ctx, 2)) {
 		duk_dup(ctx, 0);
@@ -414,7 +425,8 @@ static duk_ret_t assert_throws(duk_context *ctx)
 		result = duk_strict_equals(ctx, 2, 4);
 		duk_pop(ctx);
 		if (!result) {
-			assert_do_throw(ctx);
+			assert_do_throw(ctx, "'%s' which fn throws matches '%s'",
+				duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 2));
 		}
 	}
 	return 0;
@@ -440,7 +452,8 @@ static duk_ret_t assert_does_not_throw(duk_context *ctx)
 	}
 	/* [ err errorLike string message ] */
 	if (!duk_is_undefined(ctx, 1) && duk_instanceof(ctx, 0, 1)) {
-		assert_do_throw(ctx);
+		assert_do_throw(ctx, "'%s' which fn throws is not an instance of '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
 	}
 	if (!duk_is_undefined(ctx, 2)) {
 		duk_dup(ctx, 0);
@@ -448,8 +461,49 @@ static duk_ret_t assert_does_not_throw(duk_context *ctx)
 		result = duk_strict_equals(ctx, 2, 4);
 		duk_pop(ctx);
 		if (result) {
-			assert_do_throw(ctx);
+			assert_do_throw(ctx, "'%s' which fn throws does not match '%s'",
+				duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 2));
 		}
+	}
+	return 0;
+}
+
+static duk_ret_t assert_equal(duk_context *ctx)
+{
+	/* [ actual expected message ] */
+	if (!duk_equals(ctx, 0, 1)) {
+		assert_do_throw(ctx, "expected '%s' to equal '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_not_equal(duk_context *ctx)
+{
+	/* [ actual expected message ] */
+	if (duk_equals(ctx, 0, 1)) {
+		assert_do_throw(ctx, "expected '%s' not to equal '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_strict_equal(duk_context *ctx)
+{
+	/* [ actual expected message ] */
+	if (!duk_strict_equals(ctx, 0, 1)) {
+		assert_do_throw(ctx, "expected '%s' to strictly equal '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_not_strict_equal(duk_context *ctx)
+{
+	/* [ actual expected message ] */
+	if (duk_strict_equals(ctx, 0, 1)) {
+		assert_do_throw(ctx, "expected '%s' not to strictly equal '%s'",
+			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
 	}
 	return 0;
 }
@@ -467,6 +521,10 @@ static const duk_function_list_entry assert_funcs[] = {
 	{ "isDefined", assert_is_defined, 2 },
 	{ "throws", assert_throws, 4 },
 	{ "doesNotThrow", assert_does_not_throw, 4 },
+	{ "equal", assert_equal, 3 },
+	{ "notEqual", assert_not_equal, 3 },
+	{ "strictEqual", assert_strict_equal, 3 },
+	{ "notStrictEqual", assert_not_strict_equal, 3 },
 	{ NULL, NULL, 0 }
 };
 
