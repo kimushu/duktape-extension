@@ -1,5 +1,7 @@
 declare function describe(description: string, callback: Function): void;
+declare function xdescribe(description: string, callback: Function): void;
 declare function it(expectation: string, callback: Function): void;
+declare function xit(expectation: string, callback: Function): void;
 
 interface assert {
 	(expression: boolean, message: string): void;
@@ -13,8 +15,18 @@ interface assert {
 	notInstanceOf: (value: any, constructor: Function, message?: string) => void;
 	isUndefined: (value: any, message?: string) => void;
 	isDefined: (value: any, message?: string) => void;
-	"throws": (fn: Function, errorLike?: Function, errMsgMatcher?: string, message?: string) => void;
-	doesNotThrow: (fn: Function, errorLike?: Function, errMsgMatcher?: string, message?: string) => void;
+	"throws": (fn: Function, errorLike?: any, errMsgMatcher?: any, message?: string) => void;
+	doesNotThrow: (fn: Function, errorLike?: any, errMsgMatcher?: any, message?: string) => void;
+	equal: (actual: any, expected: any, message?: string) => void;
+	notEqual: (actual: any, expected: any, message?: string) => void;
+	strictEqual: (actual: any, expected: any, message?: string) => void;
+	notStrictEqual: (actual: any, expected: any, message?: string) => void;
+	deepEqual: (actual: any, expected: any, message?: string) => void;
+	notDeepEqual: (actual: any, expected: any, message?: string) => void;
+	isFulfilled: (promise: any, message?: string) => any;
+	isRejected: (promise: any, errorLike?: any, errMsgMathcer?: any, message?: string) => any;
+	becomes: (promise: any, value: any, message?: string) => any;
+	doesNotBecome: (promise: any, value: any, message?: string) => any;
 }
 declare var assert: assert;
 

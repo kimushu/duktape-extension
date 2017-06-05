@@ -452,21 +452,22 @@ static duk_ret_t assert_throws(duk_context *ctx)
 {
 	duk_int_t result;
 
-	/* [ fn errorLike string message ] */
+	/* [ fn errorLike? errMsgMatcher message ] */
 	if (duk_is_string(ctx, 1)) {
 		duk_pop(ctx);
 		duk_push_undefined(ctx);
 		duk_insert(ctx, 1);
 	}
+	/* [ fn errorLike errMsgMatcher message ] */
 	duk_swap(ctx, 0, 3);
-	/* [ message errorLike string fn ] */
+	/* [ message errorLike errMsgMatcher fn ] */
 	result = duk_pcall(ctx, 0);
 	duk_swap(ctx, 0, 3);
 	if (result == 0) {
-		/* [ retval errorLike string message ] */
+		/* [ retval errorLike errMsgMatcher message ] */
 		assert_do_throw(ctx, "fn throws");
 	}
-	/* [ err errorLike string message ] */
+	/* [ err errorLike errMsgMatcher message ] */
 	if (!duk_is_undefined(ctx, 1) && !duk_instanceof(ctx, 0, 1)) {
 		assert_do_throw(ctx, "'%s' which fn throws is an instance of '%s'",
 			duk_safe_to_string(ctx, 0), duk_safe_to_string(ctx, 1));
@@ -560,6 +561,222 @@ static duk_ret_t assert_not_strict_equal(duk_context *ctx)
 	return 0;
 }
 
+static duk_ret_t assert_deep_equal_inner(duk_context *ctx, int not)
+{
+	/* [ message actual(root) expected(root) ... actual expected ] */
+	if (!duk_is_object(ctx, -2) || !duk_is_object(ctx, -1)) {
+		if ((duk_equals(ctx, -2, -1) == 0) ^ (not != 0)) {
+failed:
+			duk_dup(ctx, 0);
+			assert_do_throw(ctx, "expected '%s' %sto deeply equal to '%s'",
+				duk_safe_to_string(ctx, 1), not ? "not ": "",
+				duk_safe_to_string(ctx, 2));
+		}
+		return 0;
+	}
+	duk_enum(ctx, -2, 0);
+	/* [ message ... actual expected enum ] */
+	while (duk_next(ctx, -1, 1)) {
+		/* [ message ... actual expected enum key value ] */
+		duk_swap(ctx, -1, -2);
+		/* [ message ... actual expected enum value key ] */
+		if ((duk_get_prop(ctx, -4) == 0) ^ (not != 0)) {
+			goto failed;
+		}
+		/* [ message ... actual expected enum actual_value expected_value ] */
+		assert_deep_equal_inner(ctx, not);
+		duk_pop_2(ctx);
+		/* [ message ... actual expected enum ] */
+	}
+	duk_pop(ctx);
+	/* [ message ... actual expected ] */
+	duk_enum(ctx, -1, 0);
+	/* [ message ... actual expected enum ] */
+	while (duk_next(ctx, -1, 0)) {
+		/* [ message ... actual expected enum key ] */
+		if ((duk_has_prop(ctx, -4) == 0) ^ (not != 0)) {
+			goto failed;
+		}
+		/* [ message ... actual expected enum ] */
+	}
+	duk_pop(ctx);
+	/* [ message ... actual expected ] */
+	return 0;
+}
+
+static duk_ret_t assert_deep_equal(duk_context *ctx)
+{
+	/* [ actual expected message ] */
+	duk_insert(ctx, 0);
+	/* [ message actual expected ] */
+	return assert_deep_equal_inner(ctx, 0);
+}
+
+static duk_ret_t assert_not_deep_equal(duk_context *ctx)
+{
+	/* [ actual expected message ] */
+	duk_insert(ctx, 0);
+	/* [ message actual expected ] */
+	return assert_deep_equal_inner(ctx, 1);
+}
+
+static duk_ret_t assert_fulfill_assert(duk_context *ctx)
+{
+	int magic;
+
+	/* [ value ] */
+	duk_push_current_function(ctx);
+	/* [ value func ] */
+	duk_get_prop_string(ctx, 1, "message");
+	/* [ value func message ] */
+	magic = duk_get_magic(ctx, 1);
+	if (magic == 0) {
+		/* no value check required */
+		return 0;
+	}
+
+	duk_get_prop_string(ctx, 1, "value");
+	/* [ value func message expected ] */
+	duk_replace(ctx, 1);
+	/* [ value expected message ] */
+	if (magic == 1) {
+		return assert_deep_equal(ctx);
+	} else {
+		return assert_not_deep_equal(ctx);
+	}
+}
+
+static duk_ret_t assert_unintended_rejection(duk_context *ctx)
+{
+	/* [ reason ] */
+	duk_push_current_function(ctx);
+	/* [ reason func ] */
+	duk_get_prop_string(ctx, 1, "message");
+	/* [ reason func message ] */
+	assert_do_throw(ctx, "promise to be fulfilled but it was rejected with '%s'",
+		duk_safe_to_string(ctx, 0));
+}
+
+static duk_ret_t assert_is_fulfilled(duk_context *ctx, int magic)
+{
+	/* [ promise value message ] */
+	duk_get_prop_string(ctx, 0, "then");
+	/* [ promise value message then ] */
+	if (!duk_is_callable(ctx, 3)) {
+		assert_do_throw(ctx, "expected '%s' is a thenable object",
+			duk_safe_to_string(ctx, 0));
+	}
+	duk_insert(ctx, 0);
+	/* [ then promise value message ] */
+	duk_push_c_function(ctx, assert_unintended_rejection, 1);
+	duk_insert(ctx, 2);
+	/* [ then promise func value message:4 ] */
+	duk_dup(ctx, 4);
+	duk_put_prop_string(ctx, 2, "message");
+	/* [ then promise func value message:4 ] */
+	duk_push_c_function(ctx, assert_fulfill_assert, 1);
+	duk_insert(ctx, 2);
+	/* [ then promise func func value:4 message:5 ] */
+	duk_put_prop_string(ctx, 2, "message");
+	duk_put_prop_string(ctx, 2, "value");
+	duk_set_magic(ctx, 2, magic);
+	/* [ then promise func func ] */
+	duk_call_method(ctx, 2);
+	/* [ retval ] */
+	return 1;
+}
+
+static duk_ret_t assert_is_fulfilled_any(duk_context *ctx)
+{
+	/* [ promise message ] */
+	duk_push_undefined(ctx);
+	duk_insert(ctx, 1);
+	/* [ promise undefined message ] */
+	return assert_is_fulfilled(ctx, 0);
+}
+
+static duk_ret_t assert_unintended_fulfill(duk_context *ctx)
+{
+	/* [ value ] */
+	duk_push_current_function(ctx);
+	duk_get_prop_string(ctx, 1, "message");
+	/* [ value message ] */
+	assert_do_throw(ctx, "promise to be rejected but it was fulfilled with '%s'",
+		duk_safe_to_string(ctx, 0));
+}
+
+static duk_ret_t assert_rejection_assert(duk_context *ctx)
+{
+	duk_int_t result;
+
+	/* [ reason ] */
+	duk_push_current_function(ctx);
+	duk_get_prop_string(ctx, 1, "errorLike");
+	duk_get_prop_string(ctx, 1, "errMsgMatcher");
+	duk_get_prop_string(ctx, 1, "message");
+	/* [ reason func errorLike errMsgMatcher message:4 ] */
+	if (!duk_is_undefined(ctx, 2) && !duk_instanceof(ctx, 0, 2)) {
+		assert_do_throw(ctx, "promise to be rejected with an instance of '%s' but it was rejected with '%s'",
+			duk_safe_to_string(ctx, 2), duk_safe_to_string(ctx, 0));
+	}
+	if (!duk_is_undefined(ctx, 3)) {
+		duk_dup(ctx, 0);
+		duk_safe_to_string(ctx, 5);
+		result = duk_strict_equals(ctx, 3, 5);
+		duk_pop(ctx);
+		if (!result) {
+			assert_do_throw(ctx, "promise to be rejected with a value which matches '%s' but it was rejected with '%s'",
+				duk_safe_to_string(ctx, 3), duk_safe_to_string(ctx, 0));
+		}
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_rejected(duk_context *ctx)
+{
+	/* [ promise errorLike? errMsgMatcher message ] */
+	if (duk_is_string(ctx, 1)) {
+		duk_pop(ctx);
+		duk_push_undefined(ctx);
+		duk_insert(ctx, 1);
+	}
+	/* [ promise errorLike errMsgMatcher message ] */
+	duk_get_prop_string(ctx, 0, "then");
+	/* [ promise errorLike errMsgMatcher message then:4 ] */
+	if (!duk_is_callable(ctx, 4)) {
+		assert_do_throw(ctx, "expected '%s' is a thenable object",
+			duk_safe_to_string(ctx, 0));
+	}
+	duk_insert(ctx, 0);
+	/* [ then promise errorLike errMsgMatcher message:4 ] */
+	duk_push_c_function(ctx, assert_unintended_fulfill, 1);
+	duk_dup(ctx, 4);
+	duk_put_prop_string(ctx, 5, "message");
+	/* [ then promise errorLike errMsgMatcher message:4 func:5 ] */
+	duk_insert(ctx, 2);
+	/* [ then promise func errorLike errMsgMatcher:4 message:5 ] */
+	duk_push_c_function(ctx, assert_rejection_assert, 1);
+	duk_insert(ctx, 3);
+	/* [ then promise func func errorLike:4 errMsgMatcher:5 message:6 ] */
+	duk_put_prop_string(ctx, 3, "message");
+	duk_put_prop_string(ctx, 3, "errMsgMatcher");
+	duk_put_prop_string(ctx, 3, "errorLike");
+	/* [ then promise func func ] */
+	duk_call_method(ctx, 2);
+	/* [ retval ] */
+	return 1;
+}
+
+static duk_ret_t assert_becomes(duk_context *ctx)
+{
+	return assert_is_fulfilled(ctx, 1);
+}
+
+static duk_ret_t assert_does_not_become(duk_context *ctx)
+{
+	return assert_is_fulfilled(ctx, 2);
+}
+
 static const duk_function_list_entry assert_funcs[] = {
 	{ "isOk", assert_is_ok, 2 },
 	{ "isNotOk", assert_is_not_ok, 2 },
@@ -577,6 +794,12 @@ static const duk_function_list_entry assert_funcs[] = {
 	{ "notEqual", assert_not_equal, 3 },
 	{ "strictEqual", assert_strict_equal, 3 },
 	{ "notStrictEqual", assert_not_strict_equal, 3 },
+	{ "deepEqual", assert_deep_equal, 3 },
+	{ "notDeepEqual", assert_not_deep_equal, 3 },
+	{ "isFulfilled", assert_is_fulfilled_any, 2 },
+	{ "isRejected", assert_is_rejected, 4 },
+	{ "becomes", assert_becomes, 3 },
+	{ "doesNotBecome", assert_does_not_become, 3 },
 	{ NULL, NULL, 0 }
 };
 
