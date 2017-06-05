@@ -6,9 +6,21 @@ describe("util.promisify()", () => {
 		assert.isFunction(util.promisify);
 	});
 
-	it("returns Promise", () => {
+	it("throws when non-function specified", () => {
+		let test = 1;
+		assert.throws(() => util.promisify(test));
+	})
+
+	it("returns another function", () => {
 		let test = () => {};
-		assert.instanceOf(util.promisify(test), Promise);
+		let result = util.promisify(test);
+		assert.isFunction(result);
+		assert.notStrictEqual(result, test);
+	});
+
+	it("length is preserved", () => {
+		let test = (a, b) => {};
+		assert.equal(util.promisify(test).length, test.length);
 	});
 
 });
