@@ -368,6 +368,24 @@ static duk_ret_t assert_not_exists(duk_context *ctx)
 	return 0;
 }
 
+static duk_ret_t assert_is_number(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (!duk_is_number(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is a number", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_not_number(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_number(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is not a number", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
 static duk_ret_t assert_is_function(duk_context *ctx)
 {
 	/* [ value message ] */
@@ -382,6 +400,24 @@ static duk_ret_t assert_is_not_function(duk_context *ctx)
 	/* [ value message ] */
 	if (duk_is_callable(ctx, 0)) {
 		assert_do_throw(ctx, "'%s' is not a function", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_string(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (!duk_is_string(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is a string", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_not_string(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_string(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is not a string", duk_safe_to_string(ctx, 0));
 	}
 	return 0;
 }
@@ -596,6 +632,32 @@ static duk_ret_t assert_not_deep_equal(duk_context *ctx)
 	return assert_deep_equal_inner(ctx, 1);
 }
 
+static duk_ret_t assert_property(duk_context *ctx)
+{
+	const char *property;
+
+	/* [ object property message ] */
+	property = duk_safe_to_string(ctx, 1);
+	if (!duk_has_prop_string(ctx, 0, property)) {
+		assert_do_throw(ctx, "'%s' has a property named '%s'",
+			duk_safe_to_string(ctx, 0), property);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_not_property(duk_context *ctx)
+{
+	const char *property;
+
+	/* [ object property message ] */
+	property = duk_safe_to_string(ctx, 1);
+	if (duk_has_prop_string(ctx, 0, property)) {
+		assert_do_throw(ctx, "'%s' does not have a property named '%s'",
+			duk_safe_to_string(ctx, 0), property);
+	}
+	return 0;
+}
+
 static duk_ret_t assert_fulfill_assert(duk_context *ctx)
 {
 	int magic;
@@ -758,8 +820,12 @@ static const duk_function_list_entry assert_funcs[] = {
 	{ "isNotOk", assert_is_not_ok, 2 },
 	{ "exists", assert_exists, 2 },
 	{ "notExists", assert_not_exists, 2 },
+	{ "isNumber", assert_is_number, 2 },
+	{ "isNotNumber", assert_is_not_number, 2 },
 	{ "isFunction", assert_is_function, 2 },
 	{ "isNotFunction", assert_is_not_function, 2 },
+	{ "isString", assert_is_string, 2 },
+	{ "isNotString", assert_is_not_string, 2 },
 	{ "instanceOf", assert_instanceof, 3 },
 	{ "notInstanceOf", assert_not_instanceof, 3 },
 	{ "isUndefined", assert_is_undefined, 2 },
@@ -772,6 +838,8 @@ static const duk_function_list_entry assert_funcs[] = {
 	{ "notStrictEqual", assert_not_strict_equal, 3 },
 	{ "deepEqual", assert_deep_equal, 3 },
 	{ "notDeepEqual", assert_not_deep_equal, 3 },
+	{ "property", assert_property, 3 },
+	{ "notProperty", assert_not_property, 3 },
 	{ "isFulfilled", assert_is_fulfilled_any, 2 },
 	{ "isRejected", assert_is_rejected, 4 },
 	{ "becomes", assert_becomes, 3 },

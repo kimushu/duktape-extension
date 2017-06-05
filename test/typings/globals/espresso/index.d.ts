@@ -9,8 +9,12 @@ interface assert {
 	isNotOk: (value: any, message?: string) => void;
 	exists: (value: any, message?: string) => void;
 	notExists: (value: any, message?: string) => void;
+	isNumber: (value: any, message?: string) => void;
+	isNotNumber: (value: any, message?: string) => void;
 	isFunction: (value: any, message?: string) => void;
 	isNotFunction: (value: any, message?: string) => void;
+	isString: (value: any, message?: string) => void;
+	isNotString: (value: any, message?: string) => void;
 	instanceOf: (value: any, constructor: Function, message?: string) => void;
 	notInstanceOf: (value: any, constructor: Function, message?: string) => void;
 	isUndefined: (value: any, message?: string) => void;
@@ -23,6 +27,8 @@ interface assert {
 	notStrictEqual: (actual: any, expected: any, message?: string) => void;
 	deepEqual: (actual: any, expected: any, message?: string) => void;
 	notDeepEqual: (actual: any, expected: any, message?: string) => void;
+	property: (object: any, property: string, message?: string) => void;
+	notProperty: (object: any, property: string, message?: string) => void;
 	isFulfilled: (promise: any, message?: string) => any;
 	isRejected: (promise: any, errorLike?: any, errMsgMathcer?: any, message?: string) => any;
 	becomes: (promise: any, value: any, message?: string) => any;
