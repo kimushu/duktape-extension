@@ -114,18 +114,6 @@ static duk_ret_t espresso_next(duk_context *ctx);
 
 static duk_ret_t espresso_next_resolved(duk_context *ctx)
 {
-	duk_int_t result;
-
-	/* [ value ] */
-	duk_push_current_function(ctx);
-	result = duk_get_magic(ctx, 1);
-	duk_set_magic(ctx, 1, result + 1);
-
-	if (result > 0) {
-		/* Called twice or more */
-		return 0;
-	}
-
 	duk_set_top(ctx, 0);
 	duk_push_undefined(ctx);
 	/* [ undefined ] */
@@ -134,19 +122,6 @@ static duk_ret_t espresso_next_resolved(duk_context *ctx)
 
 static duk_ret_t espresso_next_rejected(duk_context *ctx)
 {
-	duk_int_t result;
-
-	/* [ reason ] */
-	duk_push_current_function(ctx);
-	result = duk_get_magic(ctx, 1);
-	duk_set_magic(ctx, 1, result + 1);
-	duk_pop(ctx);
-
-	if (result > 0) {
-		/* Called twice or more */
-		return 0;
-	}
-
 	if (duk_is_undefined(ctx, 0)) {
 		/* [ undefined ] */
 		duk_push_error_object(ctx, DUK_ERR_TYPE_ERROR, "rejected with undefined reason");
@@ -163,17 +138,6 @@ static duk_ret_t espresso_next_inner(duk_context *ctx, espresso_data *data)
 	duk_int_t result;
 
 	/* [ value ] */
-
-	duk_push_current_function(ctx);
-	result = duk_get_magic(ctx, 1);
-	duk_set_magic(ctx, 1, result + 1);
-	duk_pop(ctx);
-
-	if (result > 0) {
-		/* Called twice or more */
-		return 0;
-	}
-
 	if (!data->current_suite) {
 		/* Test has done */
 		return DUK_RET_ERROR;
@@ -310,6 +274,18 @@ retry:
 
 static duk_ret_t espresso_next(duk_context *ctx)
 {
+	duk_int_t result;
+
+	duk_push_current_function(ctx);
+	result = duk_get_magic(ctx, 1);
+	duk_set_magic(ctx, 1, result + 1);
+	duk_pop(ctx);
+
+	if (result > 0) {
+		/* Called twice or more */
+		return 0;
+	}
+
 	return espresso_next_inner(ctx, espresso_get_data(ctx));
 }
 
