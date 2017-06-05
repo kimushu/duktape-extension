@@ -23,6 +23,10 @@ test: tester_host tsc
 tsc:
 	$(shell npm bin)/tsc -p .
 
+.PHONY: typings
+typings:
+	$(MAKE) -C ../src $@
+
 tester_host: $(DUK_SOURCE) $(DUX_SOURCE) tester_host.c espresso.c
 	gcc -o $@ -I $(DUK_DIR) -I $(DUX_DIR) $(CFLAGS) $^ $(LIBS)
 
@@ -37,4 +41,3 @@ $(DUK_SOURCE): $(DUK_ARCHIVE)
 $(DUK_ARCHIVE):
 	mkdir -p $(@D)
 	curl -o $@ $(DUK_URL)
-

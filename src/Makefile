@@ -36,8 +36,12 @@ clean:
 	rm -f $(TARGETS) $(DEP)
 
 .PHONY: test
-test: $(TARGETS)
+test: $(TARGETS) typings
 	make -C ../test
+
+.PHONY: typings
+typings: $(wildcard $(SOURCES:.c=.d.ts))
+	cp --parents --target-directory ../test/typings/globals/dux $^
 
 .PRECIOUS: $(TARGETS)
 
