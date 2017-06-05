@@ -35,6 +35,18 @@ describe("process", () => {
                 }
             }, 123, "foo");
         });
+        it("invokes all callbacks in queued order", (done) => {
+            let i = 1;
+            process.nextTick(() => {
+                if (i !== 1) { done(`invalid order ${i}`); }
+                ++i;
+            });
+            process.nextTick(() => {
+                if (i !== 2) { done(`invalid order ${i}`); }
+                ++i;
+                done();
+            });
+        });
     });
 
     describe("version property", () => {
