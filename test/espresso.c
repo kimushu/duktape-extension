@@ -191,7 +191,8 @@ retry:
 		if (!data->current_suite) {
 			/* all tests done */
 			printf("----------------------------------------------------------------\n");
-			printf(" %5d tests passed\n %5d tests failed\n\n", data->ok, data->ng);
+			printf(" %5d test%s passed\n", data->ok, data->ok >= 2 ? "s" : "");
+			printf(" %5d test%s failed\n\n", data->ng, data->ng >= 2 ? "s" : "");
 			return 0;
 		}
 		duk_get_prop_string(ctx, 0, "index");
@@ -297,7 +298,7 @@ static void assert_do_throw(duk_context *ctx)
 
 static duk_ret_t assert_is_ok(duk_context *ctx)
 {
-	/* [ expression message ] */
+	/* [ value message ] */
 	if (!duk_to_boolean(ctx, 0)) {
 		assert_do_throw(ctx);
 	}
@@ -306,8 +307,26 @@ static duk_ret_t assert_is_ok(duk_context *ctx)
 
 static duk_ret_t assert_is_not_ok(duk_context *ctx)
 {
-	/* [ expression message ] */
+	/* [ value message ] */
 	if (duk_to_boolean(ctx, 0)) {
+		assert_do_throw(ctx);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_exists(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_null_or_undefined(ctx, 0)) {
+		assert_do_throw(ctx);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_not_exists(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (!duk_is_null_or_undefined(ctx, 0)) {
 		assert_do_throw(ctx);
 	}
 	return 0;
@@ -322,10 +341,132 @@ static duk_ret_t assert_is_function(duk_context *ctx)
 	return 0;
 }
 
+static duk_ret_t assert_is_not_function(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_callable(ctx, 0)) {
+		assert_do_throw(ctx);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_instanceof(duk_context *ctx)
+{
+	/* [ value constructor message ] */
+	if (!duk_instanceof(ctx, 0, 1)) {
+		assert_do_throw(ctx);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_not_instanceof(duk_context *ctx)
+{
+	/* [ value constructor message ] */
+	if (duk_instanceof(ctx, 0, 1)) {
+		assert_do_throw(ctx);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_undefined(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (!duk_is_undefined(ctx, 0)) {
+		assert_do_throw(ctx);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_defined(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_undefined(ctx, 0)) {
+		assert_do_throw(ctx);
+	}
+	return 0;
+}
+
+static duk_ret_t assert_throws(duk_context *ctx)
+{
+	duk_int_t result;
+
+	/* [ fn errorLike string message ] */
+	if (duk_is_string(ctx, 1)) {
+		duk_pop(ctx);
+		duk_push_undefined(ctx);
+		duk_insert(ctx, 1);
+	}
+	duk_swap(ctx, 0, 3);
+	/* [ message errorLike string fn ] */
+	result = duk_pcall(ctx, 0);
+	duk_swap(ctx, 0, 3);
+	if (result == 0) {
+		/* [ retval errorLike string message ] */
+		assert_do_throw(ctx);
+	}
+	/* [ err errorLike string message ] */
+	if (!duk_is_undefined(ctx, 1) && !duk_instanceof(ctx, 0, 1)) {
+		assert_do_throw(ctx);
+	}
+	if (!duk_is_undefined(ctx, 2)) {
+		duk_dup(ctx, 0);
+		duk_safe_to_string(ctx, 4);
+		result = duk_strict_equals(ctx, 2, 4);
+		duk_pop(ctx);
+		if (!result) {
+			assert_do_throw(ctx);
+		}
+	}
+	return 0;
+}
+
+static duk_ret_t assert_does_not_throw(duk_context *ctx)
+{
+	duk_int_t result;
+
+	/* [ fn errorLike string message ] */
+	if (duk_is_string(ctx, 1)) {
+		duk_pop(ctx);
+		duk_push_undefined(ctx);
+		duk_insert(ctx, 1);
+	}
+	duk_swap(ctx, 0, 3);
+	/* [ message errorLike string fn ] */
+	result = duk_pcall(ctx, 0);
+	duk_swap(ctx, 0, 3);
+	if (result == 0) {
+		/* [ retval errorLike string message ] */
+		return 0;
+	}
+	/* [ err errorLike string message ] */
+	if (!duk_is_undefined(ctx, 1) && duk_instanceof(ctx, 0, 1)) {
+		assert_do_throw(ctx);
+	}
+	if (!duk_is_undefined(ctx, 2)) {
+		duk_dup(ctx, 0);
+		duk_safe_to_string(ctx, 4);
+		result = duk_strict_equals(ctx, 2, 4);
+		duk_pop(ctx);
+		if (result) {
+			assert_do_throw(ctx);
+		}
+	}
+	return 0;
+}
+
 static const duk_function_list_entry assert_funcs[] = {
 	{ "isOk", assert_is_ok, 2 },
 	{ "isNotOk", assert_is_not_ok, 2 },
+	{ "exists", assert_exists, 2 },
+	{ "notExists", assert_not_exists, 2 },
 	{ "isFunction", assert_is_function, 2 },
+	{ "isNotFunction", assert_is_not_function, 2 },
+	{ "instanceOf", assert_instanceof, 3 },
+	{ "notInstanceOf", assert_not_instanceof, 3 },
+	{ "isUndefined", assert_is_undefined, 2 },
+	{ "isDefined", assert_is_defined, 2 },
+	{ "throws", assert_throws, 4 },
+	{ "doesNotThrow", assert_does_not_throw, 4 },
 	{ NULL, NULL, 0 }
 };
 
