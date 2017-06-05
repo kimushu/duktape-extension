@@ -208,7 +208,7 @@ retry:
 		printf("%*s* %s\n", data->depth * INDENT, "",
 			duk_safe_to_string(ctx, 2));
 		if (flags & FLAG_SKIP) {
-			printf("%*s  => SKIPPED\n", data->depth * INDENT, "");
+			printf("%*s  => SKIPPED\n\n", data->depth * INDENT, "");
 			goto retry;
 		}
 		data->current_suite = duk_require_heapptr(ctx, 1);
@@ -254,7 +254,7 @@ retry:
 	printf("%*s- %s\n", data->depth * INDENT, "", duk_safe_to_string(ctx, 2));
 	if (flags & FLAG_SKIP) {
 		++data->skipped;
-		printf("%*s  => SKIPPED\n", data->depth * INDENT, "");
+		printf("%*s  => SKIPPED\n\n", data->depth * INDENT, "");
 		goto retry;
 	}
 	duk_get_prop_string(ctx, 1, "body");
