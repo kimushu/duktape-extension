@@ -1,0 +1,25 @@
+{
+  "name": "duktape-extension",
+  "version": "1.0.0",
+  "description": "Extension modules for Duktape",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kimushu/duktape-extension.git"
+  },
+  "author": "kimu_shu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kimushu/duktape-extension/issues"
+  },
+  "homepage": "https://github.com/kimushu/duktape-extension#readme",
+  "devDependencies": {
+    "typescript": "^2.3.4"
+  }
+}
