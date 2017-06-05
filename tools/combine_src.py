@@ -39,9 +39,9 @@ def parse(path, args):
                     l = args.line
                     continue
                 else:
-                    line = "/* include removed: " + h + " */\n"
+                    line = "/* include removed: " + h.replace("\\", "/") + " */\n"
         if l:
-            args.outf.write("#line " + str(n) + ' "' + path + '"\n')
+            args.outf.write("#line " + str(n) + ' "' + path.replace("\\", "/") + '"\n')
             l = False
         args.outf.write(line)
     f.close()
