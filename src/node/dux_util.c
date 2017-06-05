@@ -192,16 +192,11 @@ DUK_LOCAL duk_ret_t util_promisify(duk_context *ctx)
 	}
 	duk_pop(ctx);
 
-	duk_get_prop_string(ctx, 0, "length");
-	/* [ func length ] */
+	/* [ func ] */
 	duk_push_c_function(ctx, util_promisify_invoker, DUK_VARARGS);
-	duk_swap(ctx, 1, 2);
-	/* [ length invoker func ] */
-	duk_put_prop_string(ctx, 1, DUX_IPK_PROMISIFY_FUNC);
-	/* [ length invoker ] */
-	/* duk_swap(ctx, 0, 1); */
-	/* [ invoker length ] */
-	/* duk_put_prop_string(ctx, 0, "length"); */
+	duk_swap(ctx, 0, 1);
+	/* [ invoker func ] */
+	duk_put_prop_string(ctx, 0, DUX_IPK_PROMISIFY_FUNC);
 	/* [ invoker ] */
 	return 1;
 }
