@@ -1,0 +1,967 @@
+#if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_PARALLELIO)
+#include "../dux_internal.h"
+
+/*
+ * Constants
+ */
+
+DUK_LOCAL const char DUX_IPK_PARAIO_DATA[] = DUX_IPK("piData");
+DUK_LOCAL const char DUX_IPK_PARAIO_ROOT[] = DUX_IPK("piRoot");
+DUK_LOCAL const char DUX_IPK_PARAIO_HANDLER[] = DUX_IPK("piHandler");
+DUK_LOCAL const char DUX_IPK_PARAIO_SLICES[] = DUX_IPK("piSlices");
+
+/*
+ * Structures
+ */
+
+struct dux_paraio_root;
+typedef struct dux_paraio_data
+{
+	struct dux_paraio_root *root;
+	duk_int_t width;        /* 1-32 */
+	duk_int_t offset;       /* 0-31 */
+	duk_uint_t bit_mask;    /* ((1<<width)-1)<<offset */
+}
+dux_paraio_data;
+
+typedef struct dux_paraio_root {
+	dux_paraio_data head;
+	const dux_paraio_manip *manip;
+	void *param;
+	duk_uint_t cfg_in;
+	duk_uint_t cfg_out;
+	duk_uint_t cfg_pol;     /* 0=ActiveHigh,1=ActiveLow */
+	duk_uint_t cfg_lock;
+}
+dux_paraio_root;
+
+/*
+ * Get data pointer
+ */
+DUK_LOCAL dux_paraio_data *paraio_push_this_and_get_data(duk_context *ctx)
+{
+	dux_paraio_data *data;
+
+	/* [ ... ] */
+	duk_push_this(ctx);
+	/* [ ... this ] */
+	duk_get_prop_string(ctx, -1, DUX_IPK_PARAIO_DATA);
+	/* [ ... this buf ] */
+	data = (dux_paraio_data *)duk_require_buffer(ctx, -1, NULL);
+	duk_pop(ctx);
+	/* [ ... this ] */
+	return data;
+}
+
+/*
+ * Constructor for new bit array
+ */
+DUK_LOCAL duk_ret_t paraio_construct_new(duk_context *ctx,
+	duk_uint_t width, duk_uint_t offset, duk_uint_t polarity,
+	const dux_paraio_manip *manip, void *param)
+{
+	dux_paraio_root *root;
+	dux_paraio_data *data;
+
+	duk_set_top(dux, 0);
+	/* [  ] */
+
+	if ((width == 0) || (width > 32))
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+
+	if ((offset >= 32) || ((offset + width) > 32))
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+
+	duk_push_this(ctx);
+	duk_push_fixed_buffer(ctx, sizeof(dux_paraio_root));
+	/* [ this buf ] */
+	root = (dux_paraio_root *)duk_require_buffer(ctx, 1, NULL);
+	data = &root->head;
+	data->root = root;
+	data->width = width;
+	data->offset = offset;
+	data->bit_mask = ((1 << width) - 1) << offset;
+	root->manip = manip;
+	root->param = param;
+	root->cfg_pol = polarity;
+	root->cfg_lock = 0;
+	duk_dup(ctx, 1);
+	/* [ this buf(data) buf(root=data) ] */
+
+	return (*manip->read_config)(ctx, param, data->bit_mask,
+				&root->cfg_in, &root->cfg_out);
+}
+
+/*
+ * Constructor for linked (sliced) array
+ */
+DUK_LOCAL duk_ret_t paraio_construct_linked(duk_context *ctx, duk_uint_t width, duk_uint_t offset)
+{
+	dux_paraio_root *root;
+	dux_paraio_data *data;
+
+	duk_swap(ctx, -1, 0);
+	duk_set_top(ctx, 1);
+	/* [ buf(root) ] */
+	root = (dux_paraio_root *)duk_require_buffer(ctx, 0, NULL);
+
+	if (width == 0) {
+		return DUK_RET_RANGE_ERROR;
+	}
+	if ((offset >= root->head.width) || ((width + offset) > root->head.width)) {
+		return DUK_RET_RANGE_ERROR;
+	}
+
+	duk_push_fixed_buffer(ctx, sizeof(dux_paraio_data));
+	/* [ buf(root) buf(data) ] */
+	data = (dux_paraio_data *)duk_require_buffer(ctx, 1, NULL);
+	data->root = root;
+	data->width = width;
+	data->offset = offset + root->head.offset;
+	data->bit_mask = ((1 << width) - 1) << data->offset;
+
+	duk_push_this(ctx);
+	/* [ buf(root) buf(data) this ] */
+	duk_swap(ctx, 0, 2);
+	/* [ this buf(data) buf(root) ] */
+	return 0;
+}
+
+/*
+ * Getter function for ParallelIO proxy
+ */
+DUK_LOCAL duk_ret_t paraio_proxy_get(duk_context *ctx)
+{
+	/* [ this key recv ] */
+	duk_int_t index = duk_get_int_default(ctx, 1, -1);
+	if (index < 0) {
+		duk_pop(ctx);
+		duk_get_prop(ctx, 0);
+		return 1;
+	}
+
+	if (!duk_get_prop_string(ctx, 0, DUX_IPK_PARAIO_SLICES)) {
+		duk_pop(ctx);
+		duk_push_array(ctx);
+		duk_dup(ctx, 3);
+		duk_put_prop_string(ctx, 0, DUX_IPK_PARAIO_SLICES);
+	}
+}
+
+/*
+ * Constructor of ParallelIO class
+ */
+DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
+{
+	duk_ret_t result;
+
+	if (!duk_is_constructor_call(ctx)) {
+		return DUK_RET_TYPE_ERROR;
+	}
+
+	if (duk_get_top(ctx) == 3) {
+		/* Linked */
+		/* [ uint uint buf ] */
+		result = paraio_construct_linked(ctx,
+			duk_require_uint(ctx, 0),
+			duk_require_uint(ctx, 1));
+	} else {
+		/* New */
+		result = paraio_construct_new(ctx,
+			duk_require_uint(ctx, 0),
+			duk_require_uint(ctx, 1),
+			duk_require_uint(ctx, 2),
+			(const dux_paraio_manip *)duk_require_pointer(ctx, 3),
+			duk_require_pointer(ctx, 4));
+	}
+
+	if (result != 0) {
+		return result;
+	}
+
+	/* [ this buf(data) buf(root) ] */
+	duk_put_prop_string(ctx, 0, DUX_IPK_PARAIO_ROOT);
+	/* [ this buf(data) ] */
+	duk_put_prop_string(ctx, 0, DUX_IPK_PARAIO_DATA);
+	/* [ this ] */
+	duk_get_global_string(ctx, "Proxy");
+	/* [ this Proxy ] */
+	duk_swap(ctx, 0, 1);
+	/* [ Proxy this ] */
+	if (!duk_get_prop_string(ctx, 0, DUX_IPK_PARAIO_HANDLER)) {
+		/* Create handler object */
+		duk_pop(ctx);
+		duk_push_object(ctx);
+		/* [ Proxy this obj ] */
+		duk_push_c_lightfunc(ctx, paraio_proxy_get, 3);
+		duk_put_prop_string(ctx, 2, "get");
+		duk_dup(ctx, 2);
+		duk_put_prop_string(ctx, 1, DUX_IPK_PARAIO_HANDLER);
+	}
+	duk_new(ctx, 2);
+
+	return 1; /* return Proxy object */
+}
+
+/*
+ * Entry of ParallelIO.prototype.assert()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_assert(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if ((!data->manip->write_output) ||
+		((data->link->cfg_out & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->write_output)(ctx, data->param,
+				~data->cfg_pol & bits, data->cfg_pol & bits, 0);
+	if (result != 0)
+	{
+		return result;
+	}
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.low()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_low(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if ((!data->manip->write_output) ||
+		((data->link->cfg_out & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->write_output)(ctx, data->param,
+				0, bits, 0);
+	if (result != 0)
+	{
+		return result;
+	}
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.high()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_high(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if ((!data->manip->write_output) ||
+		((data->link->cfg_out & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->write_output)(ctx, data->param,
+				bits, 0, 0);
+	if (result != 0)
+	{
+		return result;
+	}
+	return 1; /* return this */
+
+}
+
+/*
+ * Entry of ParallelIO.prototype.negate()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_negate(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if ((!data->manip->write_output) ||
+		((data->link->cfg_out & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->write_output)(ctx, data->param,
+				data->cfg_pol & bits, ~data->cfg_pol & bits, 0);
+	if (result != 0)
+	{
+		return result;
+	}
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.toggle()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_toggle(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if ((!data->manip->write_output) ||
+		((data->link->cfg_out & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->write_output)(ctx, data->param,
+				0, 0, bits);
+	if (result != 0)
+	{
+		return result;
+	}
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.disableInput()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_disableInput(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if (data->link->cfg_lock & bits)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	if (!data->manip->config_input)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->config_input)(ctx, data->param,
+				bits, 0);
+	if (result != 0)
+	{
+		return result;
+	}
+	data->link->cfg_in &= ~bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.disableOutput()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_disableOutput(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if (data->link->cfg_lock & bits)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	if (!data->manip->config_output)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->config_output)(ctx, data->param,
+				bits, 0);
+	if (result != 0)
+	{
+		return result;
+	}
+	data->link->cfg_out &= ~bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.enableInput()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_enableInput(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if (data->link->cfg_lock & bits)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	if (!data->manip->config_input)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->config_input)(ctx, data->param,
+				bits, bits);
+	if (result != 0)
+	{
+		return result;
+	}
+	data->link->cfg_in |= bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.enableOutput()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_enableOutput(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+
+	/* [ this ] */
+	if (data->link->cfg_lock & bits)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	if (!data->manip->config_output)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->config_output)(ctx, data->param,
+				bits, bits);
+	if (result != 0)
+	{
+		return result;
+	}
+	data->link->cfg_out |= bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.setActiveHigh()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_setActiveHigh(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+
+	/* [ this ] */
+	if (data->link->cfg_lock & data->bits)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	data->link->cfg_pol &= ~data->bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.setActiveLow()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_setActiveLow(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+
+	/* [ this ] */
+	if (data->link->cfg_lock & data->bits)
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	data->link->cfg_pol |= data->bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.lock()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_lock(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+
+	/* [ this ] */
+	data->link->cfg_lock |= data->bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.unlock()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_unlock(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+
+	/* [ this ] */
+	data->link->cfg_lock &= ~data->bits;
+	return 1; /* return this */
+}
+
+/*
+ * Entry of ParallelIO.prototype.slice()
+ */
+DUK_LOCAL duk_ret_t paraio_proto_slice(duk_context *ctx)
+{
+	dux_paraio_data *data;
+	dux_paraio_data *new_data;
+	duk_int_t begin, end;
+	duk_ret_t result;
+
+	/* [ uint uint/undefined ] */
+	duk_push_this(ctx);
+	/* [ uint uint/undefined this ] */
+	duk_get_prop_string(ctx, 2, DUX_IPK_PARAIO_DATA);
+	/* [ uint uint/undefined this buf ] */
+	data = (dux_paraio_data *)duk_require_buffer(ctx, 3, NULL);
+
+	begin = duk_require_int(ctx, 0);
+	if (begin < 0)
+	{
+		begin += data->width;
+	}
+	if ((begin < 0) || (begin >= data->width))
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+	if (duk_is_null_or_undefined(ctx, 1))
+	{
+		end = data->width;
+	}
+	else
+	{
+		end = duk_require_int(ctx, 1);
+		if (end < 0)
+		{
+			end += data->width;
+		}
+	}
+	if (!(begin < end))
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+
+	if (data->link != data)
+	{
+		duk_pop(ctx);
+		duk_get_prop_string(ctx, 2, DUX_IPK_PARAIO_LINK);
+		/* [ uint uint/undefined this buf ] */
+	}
+	/* [ any any this buf ] */
+	duk_push_object(ctx);
+	/* [ any any this buf obj:4 ] */
+	duk_swap(ctx, 3, 4);
+	/* [ any any this obj buf:4 ] */
+	duk_get_prototype(ctx, 2);
+	duk_set_prototype(ctx, 3);
+	/* [ any any this obj buf:4 ] */
+	duk_put_prop_string(ctx, 3, DUX_IPK_PARAIO_LINK);
+	/* [ any any this obj ] */
+	duk_push_fixed_buffer(ctx, sizeof(*new_data));
+	/* [ any any this obj buf:4 ] */
+	new_data = (dux_paraio_data *)duk_require_buffer(ctx, 4, NULL);
+	memcpy(new_data, data, sizeof(*new_data));
+	new_data->link = data->link;
+	new_data->width = end - begin;
+	new_data->offset += begin;
+	new_data->bits = ((1 << new_data->width) - 1) << new_data->offset;
+	if (data->manip->slice)
+	{
+		result = (*data->manip->slice)(ctx, data->param, new_data->bits,
+					&new_data->manip, &new_data->param);
+		if (result != 0)
+		{
+			return result;
+		}
+	}
+	duk_put_prop_string(ctx, 3, DUX_IPK_PARAIO_DATA);
+	/* [ any any this obj ] */
+	return 1; /* return obj */
+}
+
+/*
+ * Common functions for ParallelIO.prototype.isXXX
+ */
+DUK_LOCAL duk_ret_t paraio_proto_is_all_zero(duk_context *ctx, duk_uint_t value, duk_uint_t bits)
+{
+	value &= bits;
+	if (value == 0)
+	{
+		duk_push_true(ctx);
+	}
+	else if (value == bits)
+	{
+		duk_push_false(ctx);
+	}
+	else
+	{
+		return 0; /* return undefined */
+	}
+	return 1; /* return bool */
+}
+
+/*
+ * Common functions for ParallelIO.prototype.isXXX
+ */
+DUK_LOCAL duk_ret_t paraio_proto_is_all_one(duk_context *ctx, duk_uint_t value, duk_uint_t bits)
+{
+	value &= bits;
+	if (value == bits)
+	{
+		duk_push_true(ctx);
+	}
+	else if (value == 0)
+	{
+		duk_push_false(ctx);
+	}
+	else
+	{
+		return 0; /* return undefined */
+	}
+	return 1; /* return bool */
+}
+
+/*
+ * Getter of ParallelIO.prototype.isAsserted
+ */
+DUK_LOCAL duk_ret_t paraio_proto_isAsserted_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+	duk_ret_t result;
+	duk_uint_t val;
+	/* [ this ] */
+	if ((!data->manip->read_input) ||
+		((data->link->cfg_in & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->read_input)(ctx, data->param, bits, &val);
+	if (result != 0)
+	{
+		return result;
+	}
+	return paraio_proto_is_all_one(ctx, val ^ data->link->cfg_pol, bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.isHigh
+ */
+DUK_LOCAL duk_ret_t paraio_proto_isHigh_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+	duk_ret_t result;
+	duk_uint_t val;
+	/* [ this ] */
+	if ((!data->manip->read_input) ||
+		((data->link->cfg_in & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->read_input)(ctx, data->param, bits, &val);
+	if (result != 0)
+	{
+		return result;
+	}
+	return paraio_proto_is_all_one(ctx, val, bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.isLow
+ */
+DUK_LOCAL duk_ret_t paraio_proto_isLow_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+	duk_ret_t result;
+	duk_uint_t val;
+	/* [ this ] */
+	if ((!data->manip->read_input) ||
+		((data->link->cfg_in & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->read_input)(ctx, data->param, bits, &val);
+	if (result != 0)
+	{
+		return result;
+	}
+	return paraio_proto_is_all_zero(ctx, val, bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.isNegated
+ */
+DUK_LOCAL duk_ret_t paraio_proto_isNegated_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+	duk_ret_t result;
+	duk_uint_t val;
+	/* [ this ] */
+	if ((!data->manip->read_input) ||
+		((data->link->cfg_in & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->read_input)(ctx, data->param, bits, &val);
+	if (result != 0)
+	{
+		return result;
+	}
+	return paraio_proto_is_all_zero(ctx, val ^ data->link->cfg_pol, bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.value
+ */
+DUK_LOCAL duk_ret_t paraio_proto_value_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+	duk_ret_t result;
+	duk_uint_t val;
+	/* [ this ] */
+	if ((!data->manip->read_input) ||
+		((data->link->cfg_in & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	result = (*data->manip->read_input)(ctx, data->param, bits, &val);
+	if (result != 0)
+	{
+		return result;
+	}
+	duk_push_uint(ctx, (val & bits) >> data->offset);
+	/* [ this uint ] */
+	return 1; /* return uint */
+}
+
+/*
+ * Setter of ParallelIO.prototype.value
+ */
+DUK_LOCAL duk_ret_t paraio_proto_value_setter(duk_context *ctx)
+{
+	duk_ret_t result;
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	duk_uint_t bits = data->bits;
+	duk_uint_t val;
+
+	/* [ uint this ] */
+	if ((!data->manip->write_output) ||
+		((data->link->cfg_out & bits) != bits))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+	val = duk_require_uint(ctx, 0);
+	if (val >= (1 << data->width))
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+	val <<= data->offset;
+	result = (*data->manip->write_output)(ctx, data->param,
+				val & bits, ~val & bits, 0);
+	if (result != 0)
+	{
+		return result;
+	}
+	return 0;
+}
+
+/*
+ * Getter of ParallelIO.prototype.canInput
+ */
+DUK_LOCAL duk_ret_t paraio_proto_canInput_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	return paraio_proto_is_all_one(ctx, data->link->cfg_in, data->bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.canOutput
+ */
+DUK_LOCAL duk_ret_t paraio_proto_canOutput_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	return paraio_proto_is_all_one(ctx, data->link->cfg_out, data->bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.isActiveHigh
+ */
+DUK_LOCAL duk_ret_t paraio_proto_isActiveHigh_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	return paraio_proto_is_all_zero(ctx, data->link->cfg_pol, data->bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.isActiveLow
+ */
+DUK_LOCAL duk_ret_t paraio_proto_isActiveLow_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	return paraio_proto_is_all_one(ctx, data->link->cfg_pol, data->bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.isLocked
+ */
+DUK_LOCAL duk_ret_t paraio_proto_isLocked_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	return paraio_proto_is_all_one(ctx, data->link->cfg_lock, data->bits);
+}
+
+/*
+ * Getter of ParallelIO.prototype.width
+ */
+DUK_LOCAL duk_ret_t paraio_proto_width_getter(duk_context *ctx)
+{
+	dux_paraio_data *data = paraio_push_this_and_get_data(ctx);
+	/* [ this ] */
+	duk_push_uint(ctx, data->width);
+	/* [ this uint ] */
+	return 1; /* return uint */
+}
+
+/*
+ * List of ParallelIO's instance methods
+ */
+DUK_LOCAL const duk_function_list_entry paraio_proto_funcs[] = {
+	/* Output */
+	{ "assert", paraio_proto_assert, 0 },
+	{ "clear", paraio_proto_low, 0 },
+	{ "high", paraio_proto_high, 0 },
+	{ "low", paraio_proto_low, 0 },
+	{ "negate", paraio_proto_negate, 0 },
+	{ "off", paraio_proto_negate, 0 },
+	{ "on", paraio_proto_assert, 0 },
+	{ "set", paraio_proto_high, 0 },
+	{ "toggle", paraio_proto_toggle, 0 },
+	/* Direction */
+	{ "disableInput", paraio_proto_disableInput, 0 },
+	{ "disableOutput", paraio_proto_disableOutput, 0 },
+	{ "enableInput", paraio_proto_enableInput, 0 },
+	{ "enableOutput", paraio_proto_enableOutput, 0 },
+	/* Polarity */
+	{ "setActiveHigh", paraio_proto_setActiveHigh, 0 },
+	{ "setActiveLow", paraio_proto_setActiveLow, 0 },
+	/* Lock */
+	{ "lock", paraio_proto_lock, 0 },
+	{ "unlock", paraio_proto_unlock, 0 },
+	/* Other */
+	{ "slice", paraio_proto_slice, 2 },
+	{ NULL, NULL, 0 }
+};
+
+/*
+ * List of ParallelIO's instance properties
+ */
+DUK_LOCAL const dux_property_list_entry paraio_proto_props[] = {
+	/* Pin value */
+	{ "isAsserted", paraio_proto_isAsserted_getter, NULL },
+	{ "isCleared", paraio_proto_isLow_getter, NULL },
+	{ "isHigh", paraio_proto_isHigh_getter, NULL },
+	{ "isLow", paraio_proto_isLow_getter, NULL },
+	{ "isNegated", paraio_proto_isNegated_getter, NULL },
+	{ "isOff", paraio_proto_isNegated_getter, NULL },
+	{ "isOn", paraio_proto_isAsserted_getter, NULL },
+	{ "isSet", paraio_proto_isHigh_getter, NULL },
+	{ "value", paraio_proto_value_getter, paraio_proto_value_setter },
+	/* Direction */
+	{ "canInput", paraio_proto_canInput_getter, NULL },
+	{ "canOutput", paraio_proto_canOutput_getter, NULL },
+	/* Polarity */
+	{ "isActiveHigh", paraio_proto_isActiveHigh_getter, NULL },
+	{ "isActiveLow", paraio_proto_isActiveLow_getter, NULL },
+	/* Lock */
+	{ "isLocked", paraio_proto_isLocked_getter, NULL },
+	/* Others */
+	{ "width", paraio_proto_width_getter, NULL },
+	{ NULL, NULL, NULL }
+};
+
+/*
+ * Initialize ParallelIO object
+ */
+DUK_INTERNAL duk_errcode_t dux_paraio_init(duk_context *ctx)
+{
+	/* [ ... ] */
+	dux_push_named_c_constructor(
+			ctx, "ParallelIO", paraio_constructor, 5,
+			NULL, paraio_proto_funcs, NULL, paraio_proto_props);
+	/* [ ... constructor ] */
+	duk_put_global_string(ctx, "ParallelIO");
+	/* [ ... ] */
+	return DUK_ERR_NONE;
+}
+
+/*
+ * Manipulator functions
+ */
+
+DUK_LOCAL duk_ret_t paraio_manip_read_input(duk_context *ctx, void *param,
+                                            duk_uint_t bits, duk_uint_t *result)
+{
+	*result = dux_hardware_read(param) & bits;
+	return 0;
+}
+
+DUK_LOCAL duk_ret_t paraio_manip_write_output(duk_context *ctx, void *param,
+                                              duk_uint_t set, duk_uint_t clear,
+                                              duk_uint_t toggle)
+{
+	dux_hardware_write(param,
+			((dux_hardware_read(param) | set) & ~clear) ^ toggle);
+	return 0;
+}
+
+DUK_LOCAL duk_ret_t paraio_manip_config_enabled(duk_context *ctx, void *param,
+                                                duk_uint_t bits, duk_uint_t enabled)
+{
+	if ((bits & enabled) != bits)
+	{
+		return DUK_RET_ERROR;
+	}
+	return 0;
+}
+
+DUK_LOCAL duk_ret_t paraio_manip_read_config_ro(duk_context *ctx, void *param,
+                                                duk_uint_t bits,
+                                                duk_uint_t *input, duk_uint_t *output)
+{
+	*input = bits;
+	*output = 0;
+	return 0;
+}
+
+DUK_LOCAL duk_ret_t paraio_manip_read_config_rw(duk_context *ctx, void *param,
+                                                duk_uint_t bits,
+                                                duk_uint_t *input, duk_uint_t *output)
+{
+	*input = bits;
+	*output = bits;
+	return 0;
+}
+
+/*
+ * Manipulator definitions
+ */
+
+DUK_INTERNAL const dux_paraio_manip dux_paraio_manip_ro =
+{
+	.read_input = paraio_manip_read_input,
+	.config_input = paraio_manip_config_enabled,
+	.read_config = paraio_manip_read_config_ro,
+};
+
+DUK_INTERNAL const dux_paraio_manip dux_paraio_manip_rw =
+{
+	.read_input = paraio_manip_read_input,
+	.write_output = paraio_manip_write_output,
+	.config_input = paraio_manip_config_enabled,
+	.config_output = paraio_manip_config_enabled,
+	.read_config = paraio_manip_read_config_rw,
+};
+
+#endif  /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_PARALLELIO */

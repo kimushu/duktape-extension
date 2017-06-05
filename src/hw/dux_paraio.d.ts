@@ -131,7 +131,7 @@ declare class ParallelIO {
      * PlainBuffer with dux_paraio_data
      */
     private "DUX_IPK_PARAIO_DATA": "PlainBuffer";
-    private "DUX_IPK_PARAIO_ROOT": "PlainBuffer";
+    private "DUX_IPK_PARAIO_LINK": "PlainBuffer";
 
     /**
      * Constructor (for new bits)
@@ -141,13 +141,5 @@ declare class ParallelIO {
      * @param manip Pointer to manipulator table
      * @param param Arbitrary pointer passed to manipulator
      */
-    protected constructor(width: number, offset: number, polarity: number, manip: "pointer", param: "pointer");
-
-    /**
-     * Constructor (for linked bits)
-     * @param width Number of bits
-     * @param offset Offset of LSB (from zero)
-     * @param data PlainBuffer with dux_paraio_data of base object
-     */
-    protected constructor(width: number, offset: number, root: "PlainBuffer");
+    protected constructor(width: number, offset: number, polarity: number, manip: "Pointer", param: "Pointer");
 }

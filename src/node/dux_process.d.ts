@@ -1,10 +1,15 @@
-declare interface Process {
-    exit: (exitCode: number) => void;
-    nextTick: (callback: Function, ...args) => void;
-    readonly arch: string;
-    exitCode: number;
+declare namespace Dux {
+    interface ProcessVersions {
+        duktape: string;
+        dux: string;
+    }
+    interface Process {
+        readonly arch: string;
+        exit: (exitCode: number) => void;
+        exitCode: number;
+        nextTick: (callback: Function, ...args) => void;
+        readonly version: string;
+        readonly versions: ProcessVersions;
+    }
 }
-declare module "process" {
-    export = Process;
-}
-declare var process: Process;
+declare var process: Dux.Process;

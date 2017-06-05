@@ -25,11 +25,15 @@ describe("util", () => {
 
 		it("calls original function with correct arguments", (done) => {
 			let test = (a, b, c, d) => {
-				assert.strictEqual(a, 1);
-				assert.strictEqual(b, undefined);
-				assert.isFunction(c);
-				assert.isUndefined(d);
-				done();
+				try {
+					assert.strictEqual(a, 1);
+					assert.strictEqual(b, undefined);
+					assert.isFunction(c);
+					assert.isUndefined(d);
+					done();
+				} catch (error) {
+					done(error);
+				}
 			};
 			util.promisify(test)(1, undefined);
 		});

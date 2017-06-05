@@ -1,10 +1,3 @@
-/*
- * ECMA class methods:
- *    util.format(format [, arg1, ... argN])
- *
- * Internal data structure:
- *    global.util = util;
- */
 #if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_UTIL)
 #include "../dux_internal.h"
 
