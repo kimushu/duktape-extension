@@ -6,14 +6,16 @@ static const char ESPRESSO_DATA[] = "\xff" "espData";
 static const char ESPRESSO_ROOT[] = "\xff" "espRoot";
 
 #define INDENT 4
+#define FLAG_SKIP	0x40000000
 
 typedef struct {
 	int depth;
 	void *current_suite;
 	int index;
 	int tests;
-	int ok;
-	int ng;
+	int passed;
+	int skipped;
+	int failed;
 } espresso_data;
 
 static espresso_data *espresso_get_data(duk_context *ctx)
@@ -27,7 +29,7 @@ static espresso_data *espresso_get_data(duk_context *ctx)
 	return data;
 }
 
-static duk_ret_t espresso_suite(duk_context *ctx)
+static duk_ret_t espresso_define_suite(duk_context *ctx, int flags)
 {
 	espresso_data *data;
 	void *parent_suite;
@@ -48,6 +50,8 @@ static duk_ret_t espresso_suite(duk_context *ctx)
 	duk_put_prop_string(ctx, 3, "parent");
 	duk_push_int(ctx, duk_get_length(ctx, 2));
 	duk_put_prop_string(ctx, 3, "index");
+	duk_push_int(ctx, flags);
+	duk_put_prop_string(ctx, 3, "flags");
 	data->current_suite = duk_require_heapptr(ctx, 3);
 	++data->depth;
 	/* [ description callback arr(parent) arr(child) ] */
@@ -62,7 +66,17 @@ static duk_ret_t espresso_suite(duk_context *ctx)
 	return 0;
 }
 
-static duk_ret_t espresso_test(duk_context *ctx)
+static duk_ret_t espresso_describe(duk_context *ctx)
+{
+	return espresso_define_suite(ctx, 0);
+}
+
+static duk_ret_t espresso_xdescribe(duk_context *ctx)
+{
+	return espresso_define_suite(ctx, FLAG_SKIP);
+}
+
+static duk_ret_t espresso_define_test(duk_context *ctx, int flags)
 {
 	espresso_data *data;
 
@@ -79,10 +93,21 @@ static duk_ret_t espresso_test(duk_context *ctx)
 	duk_put_prop_string(ctx, 3, "name");
 	duk_dup(ctx, 1);
 	duk_put_prop_string(ctx, 3, "body");
+	duk_push_int(ctx, flags);
+	duk_put_prop_string(ctx, 3, "flags");
 	duk_put_prop_index(ctx, 2, duk_get_length(ctx, 2));
-	++data->tests;
 	/* [ description callback arr(suite) ] */
 	return 0;
+}
+
+static duk_ret_t espresso_it(duk_context *ctx)
+{
+	return espresso_define_test(ctx, 0);
+}
+
+static duk_ret_t espresso_xit(duk_context *ctx)
+{
+	return espresso_define_test(ctx, FLAG_SKIP);
 }
 
 static duk_ret_t espresso_next(duk_context *ctx);
@@ -134,6 +159,7 @@ static duk_ret_t espresso_next_rejected(duk_context *ctx)
 static duk_ret_t espresso_next_inner(duk_context *ctx, espresso_data *data)
 {
 	int async;
+	duk_int_t flags;
 	duk_int_t result;
 
 	/* [ value ] */
@@ -158,10 +184,10 @@ done:
 		/* End of previous test */
 		printf("%*s  => ", data->depth * INDENT, "");
 		if (duk_is_undefined(ctx, 0)) {
-			++data->ok;
+			++data->passed;
 			printf("OK\n\n");
 		} else {
-			++data->ng;
+			++data->failed;
 			printf("NG (%s)\n\n", duk_safe_to_string(ctx, 0));
 		}
 	}
@@ -176,9 +202,16 @@ retry:
 	if (duk_is_array(ctx, 1)) {
 		/* [ arr(parent) arr(child) ] */
 		duk_get_prop_string(ctx, 1, "name");
-		/* [ arr(parent) arr(child) str ] */
+		duk_get_prop_string(ctx, 1, "flags");
+		/* [ arr(parent) arr(child) str int ] */
+		flags = duk_require_int(ctx, 3);
+		printf("%*s* %s\n", data->depth * INDENT, "",
+			duk_safe_to_string(ctx, 2));
+		if (flags & FLAG_SKIP) {
+			printf("%*s  => SKIPPED\n", data->depth * INDENT, "");
+			goto retry;
+		}
 		data->current_suite = duk_require_heapptr(ctx, 1);
-		printf("%*s* %s\n", data->depth * INDENT, "", duk_safe_to_string(ctx, 2));
 		++data->depth;
 		data->index = -1;
 		goto retry;
@@ -192,8 +225,16 @@ retry:
 		if (!data->current_suite) {
 			/* all tests done */
 			printf("----------------------------------------------------------------\n");
-			printf(" %5d test%s passed\n", data->ok, data->ok >= 2 ? "s" : "");
-			printf(" %5d test%s failed\n\n", data->ng, data->ng >= 2 ? "s" : "");
+			if (data->passed > 0) {
+				printf(" %5d test%s passed\n", data->passed, data->passed >= 2 ? "s" : "");
+			}
+			if (data->skipped > 0) {
+				printf(" %5d test%s skipped\n", data->skipped, data->skipped >= 2 ? "s" : "");
+			}
+			if (data->failed > 0) {
+				printf(" %5d test%s failed\n", data->failed, data->failed >= 2 ? "s" : "");
+			}
+			printf("\n");
 			return 0;
 		}
 		duk_get_prop_string(ctx, 0, "index");
@@ -204,9 +245,18 @@ retry:
 	}
 
 	/* [ arr(suite) obj ] */
+	++data->tests;
 	duk_get_prop_string(ctx, 1, "name");
+	duk_get_prop_string(ctx, 1, "flags");
+	flags = duk_require_int(ctx, 3);
+	duk_pop(ctx);
 	/* [ arr(suite) obj str ] */
 	printf("%*s- %s\n", data->depth * INDENT, "", duk_safe_to_string(ctx, 2));
+	if (flags & FLAG_SKIP) {
+		++data->skipped;
+		printf("%*s  => SKIPPED\n", data->depth * INDENT, "");
+		goto retry;
+	}
 	duk_get_prop_string(ctx, 1, "body");
 	/* [ arr(suite) obj str func(body) ] */
 	duk_get_prop_string(ctx, 3, "length");
@@ -286,8 +336,10 @@ static duk_ret_t espresso_run(duk_context *ctx)
 }
 
 static const duk_function_list_entry espresso_funcs[] = {
-	{ "describe", espresso_suite, 2 },
-	{ "it", espresso_test, 2 },
+	{ "describe", espresso_describe, 2 },
+	{ "xdescribe", espresso_xdescribe, 2 },
+	{ "it", espresso_it, 2 },
+	{ "xit", espresso_xit, 2 },
 	{ "run", espresso_run, 0 },
 	{ NULL, NULL, 0 }
 };
@@ -547,8 +599,9 @@ void espresso_init(duk_context *ctx)
 	data->depth = 0;
 	data->current_suite = root_suite;
 	data->index = -1;
-	data->ok = 0;
-	data->ng = 0;
+	data->passed = 0;
+	data->skipped = 0;
+	data->failed = 0;
 	duk_put_prop_string(ctx, -2, ESPRESSO_DATA);
 	/* [ ... global ] */
 	duk_put_function_list(ctx, -1, espresso_funcs);
@@ -562,11 +615,17 @@ void espresso_init(duk_context *ctx)
 	/* [ ... ] */
 }
 
-int espresso_is_finished(duk_context *ctx, int *all_passed)
+int espresso_is_finished(duk_context *ctx, int *passed, int *skipped, int *failed)
 {
 	espresso_data *data = espresso_get_data(ctx);
-	if (all_passed) {
-		*all_passed = (data->tests == data->ok);
+	if (passed) {
+		*passed = data->passed;
+	}
+	if (skipped) {
+		*skipped = data->skipped;
+	}
+	if (failed) {
+		*failed = data->failed;
 	}
 	return (data->current_suite == NULL);
 }

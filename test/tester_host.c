@@ -5,7 +5,7 @@
 static duk_context *g_ctx;
 
 extern void espresso_init(duk_context *ctx);
-extern int espresso_is_finished(duk_context *ctx, int *all_passed);
+extern int espresso_is_finished(duk_context *ctx, int *passed, int *skipped, int *failed);
 
 static void my_fatal(void *udata, const char *msg)
 {
@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 	char *source;
 	duk_context *ctx;
 	int test_done;
-	int all_passed = 0;
+	int failed = 0;
 
 	ctx = duk_create_heap(NULL, NULL, NULL, NULL, my_fatal);
 	g_ctx = ctx;
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
 	fprintf(stderr, "INFO: event loop starting\n");
 	for (;;) {
-		test_done = espresso_is_finished(ctx, &all_passed);
+		test_done = espresso_is_finished(ctx, NULL, NULL, &failed);
 		if (!dux_tick(ctx)) {
 			break;
 		} else if (test_done) {
@@ -78,6 +78,6 @@ int main(int argc, char *argv[])
 	g_ctx = NULL;
 	duk_destroy_heap(ctx);
 	fprintf(stderr, "INFO: heap destroyed\n");
-	return (test_done && all_passed) ? 0 : 1;
+	return (test_done && failed == 0) ? 0 : 1;
 }
 
