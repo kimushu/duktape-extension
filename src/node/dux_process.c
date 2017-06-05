@@ -211,9 +211,28 @@ static duk_ret_t process_stdout_getter(duk_context *ctx)
 DUK_LOCAL duk_ret_t process_version_getter(duk_context *ctx)
 {
 	/* [  ] */
-	duk_push_string(ctx, DUX_VERSION_STRING);
+	duk_push_string(ctx, DUK_GIT_DESCRIBE);
 	/* [ string ] */
 	return 1; /* return string */
+}
+
+/*
+ * Getter of process.versions
+ */
+DUK_LOCAL duk_ret_t process_versions_getter(duk_context *ctx)
+{
+	/* [  ] */
+	duk_push_this(ctx);
+	duk_push_object(ctx);
+	duk_push_string(ctx, "versions");
+	duk_dup(ctx, 1);
+	/* [ this obj "versions" obj ] */
+	duk_push_string(ctx, DUK_GIT_DESCRIBE + 1);
+	duk_put_prop_string(ctx, 3, "duktape");
+	duk_push_string(ctx, DUX_VERSION_STRING);
+	duk_put_prop_string(ctx, 3, "dux");
+	duk_def_prop(ctx, 0, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_FORCE);
+	return 1;
 }
 
 /*
@@ -235,6 +254,7 @@ DUK_LOCAL dux_property_list_entry process_props[] = {
 //	{ "stdin", process_stdin_getter, NULL },
 //	{ "stdout", process_stdout_getter, NULL },
 	{ "version", process_version_getter, NULL },
+	{ "versions", process_versions_getter, NULL },
 	{ NULL, NULL, NULL }
 };
 
