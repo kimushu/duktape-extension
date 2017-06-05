@@ -1,9 +1,10 @@
-DESTDIR = ../src
+DESTDIR = ../dist
 COMBINE = python ../tools/combine_src.py
 
 TARGETS = $(addprefix $(DESTDIR)/dux_all.,c h)
 SOURCES = \
 	dux_basis.c \
+	dux_modules.c \
 	dux_thrpool.c \
 	dux_promise_simplified.c \
 	node/dux_process.c \
@@ -35,7 +36,7 @@ clean:
 
 .PHONY: test
 test: $(TARGETS)
-	make -C $(DESTDIR)
+	make -C ../test
 
 .PRECIOUS: $(TARGETS)
 

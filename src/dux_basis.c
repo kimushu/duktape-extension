@@ -11,12 +11,15 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 {
 #define INIT(module) \
 	do { \
+		fprintf(stderr, "initializing %s\n", #module); \
 		duk_errcode_t result = dux_##module##_init(ctx); \
 		if (result != DUK_ERR_NONE) \
 		{ \
 			return result; \
 		} \
 	} while (0)
+
+	INIT(modules);
 
 	INIT(promise);
 	INIT(thrpool);

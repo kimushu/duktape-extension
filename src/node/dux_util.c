@@ -199,9 +199,9 @@ DUK_LOCAL duk_ret_t util_promisify(duk_context *ctx)
 	/* [ length invoker func ] */
 	duk_put_prop_string(ctx, 1, DUX_IPK_PROMISIFY_FUNC);
 	/* [ length invoker ] */
-	duk_swap(ctx, 0, 1);
+	/* duk_swap(ctx, 0, 1); */
 	/* [ invoker length ] */
-	duk_put_prop_string(ctx, 0, "length");
+	/* duk_put_prop_string(ctx, 0, "length"); */
 	/* [ invoker ] */
 	return 1;
 }
@@ -219,27 +219,27 @@ DUK_LOCAL duk_function_list_entry util_funcs[] = {
 	{ NULL, NULL, 0 }
 };
 
-DUK_INTERNAL duk_errcode_t dux_util_init(duk_context *ctx)
+DUK_LOCAL duk_errcode_t dux_util_entry(duk_context *ctx)
 {
-	/* [ ... ] */
-	duk_push_object(ctx);
-	/* [ ... obj ] */
-	duk_put_function_list(ctx, -1, util_funcs);
+	/* [ require module exports ] */
+	duk_put_function_list(ctx, 2, util_funcs);
 #if !defined(DUX_OPT_NO_PROMISE)
 	duk_push_c_function(ctx, util_promisify, 1);
-	/* [ ... util func ] */
+	/* [ require module exports func:3 ] */
 	duk_push_string(ctx, "custom");
 	duk_push_string(ctx, DUX_SYM_PROMISIFY_CUSTOM);
-	/* [ ... util func "custom" symbol ] */
-	duk_def_prop(ctx, -3, DUK_DEFPROP_HAVE_VALUE |
+	/* [ require module exports func:3 "custom":4 symbol:5 ] */
+	duk_def_prop(ctx, 3, DUK_DEFPROP_HAVE_VALUE |
 		DUK_DEFPROP_CLEAR_WRITABLE | DUK_DEFPROP_SET_ENUMERABLE);
-	/* [ ... util func ] */
-	duk_put_prop_string(ctx, -2, "promisify");
+	/* [ require module exports func:3 ] */
+	duk_put_prop_string(ctx, 2, "promisify");
 #endif	/* !DUX_OPT_NO_PROMISE */
-	/* [ ... util ] */
-	duk_put_global_string(ctx, "util");
-	/* [ ... ] */
 	return DUK_ERR_NONE;
+}
+
+DUK_INTERNAL duk_errcode_t dux_util_init(duk_context *ctx)
+{
+	return dux_modules_register(ctx, "util", dux_util_entry);
 }
 
 DUK_INTERNAL duk_ret_t dux_util_format(duk_context *ctx)

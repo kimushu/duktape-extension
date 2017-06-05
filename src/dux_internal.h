@@ -22,6 +22,7 @@ extern "C" {
  */
 
 #include "dux_basis.h"
+#include "dux_modules.h"
 #include "dux_promise.h"
 #include "dux_thrpool.h"
 
