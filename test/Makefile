@@ -8,6 +8,14 @@ DUK_SOURCE = $(DUK_DIR)/duktape.c
 DUX_DIR = ../dist
 DUX_SOURCE = $(DUX_DIR)/dux_all.c
 
+ifeq ($(OS),Windows_NT)
+TARGET = tester_host.exe
+else
+TARGET = tester_host
+endif
+
+C_SOURCES = tester_host.c espresso.c
+
 CFLAGS =
 LIBS = -lm -pthread
 
@@ -16,7 +24,7 @@ LIBS += -lwinmm
 endif
 
 .PHONY: test
-test: tester_host tsc
+test: $(TARGET) tsc
 	./$< $(wildcard out/**/*.js)
 
 .PHONY: tsc
@@ -28,12 +36,13 @@ tsc:
 dux:
 	$(MAKE) -C ../src
 
-tester_host: $(DUK_SOURCE) $(DUX_SOURCE) tester_host.c espresso.c
+$(TARGET): $(DUK_SOURCE) $(DUX_SOURCE) $(C_SOURCES)
 	gcc -o $@ -I $(DUK_DIR) -I $(DUX_DIR) $(CFLAGS) $^ $(LIBS)
+	nm $@ > $@.map
 
 .PHONY: clean
 clean:
-	rm -f tester_host
+	rm -f $(TARGET)
 
 $(DUK_SOURCE): $(DUK_ARCHIVE)
 	tar xf $< $(dir $(DUK_SOURCE))

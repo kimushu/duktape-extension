@@ -1,5 +1,8 @@
 #include "dux_internal.h"
 #include <stdio.h>
+#include <stdarg.h>
+
+// #define DEBUG
 
 DUK_LOCAL const char DUX_IPK_TABLE[]  = DUX_IPK("bTable");
 DUK_LOCAL const char DUX_IPK_STORE[]  = DUX_IPK("bStore");
@@ -9,34 +12,15 @@ DUK_LOCAL const char DUX_IPK_STORE[]  = DUX_IPK("bStore");
  */
 DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 {
-#define INIT(module) \
-	do { \
-		duk_errcode_t result = dux_##module##_init(ctx); \
-		if (result != DUK_ERR_NONE) \
-		{ \
-			return result; \
-		} \
-	} while (0)
-
-	INIT(modules);
-
-	INIT(promise);
-	INIT(thrpool);
-
-	INIT(console);
-	INIT(process);
-	INIT(timer);
-	INIT(util);
-
-	INIT(paraio);
-	INIT(i2ccon);
-	INIT(spicon);
-
-	INIT(peridot);
-
-#undef INIT
-
-	return DUK_ERR_NONE;
+	return dux_invoke_initializers(ctx,
+		DUX_INIT_MODULES
+		DUX_INIT_PROMISE
+		DUX_INIT_THRPOOL
+		DUX_INIT_NODE
+		DUX_INIT_HARDWARE
+		DUX_INIT_PERIDOT
+		NULL
+	);
 }
 
 /*
@@ -44,34 +28,76 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
  */
 DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 {
-	duk_int_t result = 0;
-
-#define TICK(module) \
-	do { \
-		result |= dux_##module##_tick(ctx); \
-		if (result & DUX_TICK_RET_ABORT) \
-		{ \
-			return 0; \
-		} \
-	} while (0)
-
-	TICK(promise);
-	TICK(thrpool);
-
-	TICK(console);
-	TICK(process);
-	TICK(timer);
-	TICK(util);
-
-	TICK(paraio);
-	TICK(i2ccon);
-	TICK(spicon);
-
-	TICK(peridot);
-
-#undef TICK
+	duk_int_t result;
+	result = dux_invoke_tick_handlers(ctx,
+		DUX_TICK_MODULES
+		DUX_TICK_PROMISE
+		DUX_TICK_THRPOOL
+		DUX_TICK_NODE
+		DUX_TICK_HARDWARE
+		DUX_TICK_PERIDOT
+		NULL
+	);
 
 	return (result & DUX_TICK_RET_CONTINUE) ? 1 : 0;
+}
+
+/*
+ * Invoker for initializers
+ */
+DUK_INTERNAL duk_errcode_t dux_invoke_initializers(duk_context *ctx, ...)
+{
+#ifdef DEBUG
+	static int level;
+#endif
+	duk_errcode_t result = DUK_ERR_NONE;
+	dux_initializer init;
+	va_list args;
+	va_start(args, ctx);
+	while (result == DUK_ERR_NONE) {
+		init = va_arg(args, dux_initializer);
+		if (!init) {
+			break;
+		}
+#ifdef DEBUG
+		printf("[%d] init:%p (top:%d)\n", level++, init, duk_get_top(ctx));
+#endif
+		result = (*init)(ctx);
+#ifdef DEBUG
+		printf("[%d] => %d (top:%d)\n", --level, result, duk_get_top(ctx));
+#endif
+	}
+	va_end(args);
+	return result;
+}
+
+/*
+ * Invoker for tick handlers
+ */
+DUK_INTERNAL duk_int_t dux_invoke_tick_handlers(duk_context *ctx, ...)
+{
+#ifdef DEBUG
+	static int level;
+#endif
+	duk_int_t result = 0;
+	dux_tick_handler tick;
+	va_list args;
+	va_start(args, ctx);
+	while ((result & DUX_TICK_RET_ABORT) == 0) {
+		tick = va_arg(args, dux_tick_handler);
+		if (!tick) {
+			break;
+		}
+#ifdef DEBUG
+		printf("[%d] tick:%p (top:%d)\n", level++, tick, duk_get_top(ctx));
+#endif
+		result |= (*tick)(ctx);
+#ifdef DEBUG
+		printf("[%d] => %d (top:%d)\n", --level, result, duk_get_top(ctx));
+#endif
+	}
+	va_end(args);
+	return result;
 }
 
 /*
@@ -180,3 +206,60 @@ DUK_INTERNAL duk_int_t dux_require_int_range(duk_context *ctx, duk_idx_t index,
 	return value;
 }
 
+DUK_INTERNAL duk_bool_t dux_get_array_index(duk_context *ctx, duk_idx_t key_idx, duk_uarridx_t *result)
+{
+	const char *str;
+	char ch;
+	duk_uint_t arr_idx;
+	duk_int_t top = duk_get_top(ctx);
+
+	if (duk_is_number(ctx, key_idx)) {
+		duk_dup(ctx, key_idx);
+		str = duk_to_string(ctx, -1);
+	} else {
+		str = duk_get_string(ctx, key_idx);
+		if (!str) {
+			goto fail;
+		}
+	}
+
+	int len = strlen(str);
+	if (len < 1 || len > 10) {
+		goto fail;
+	}
+
+	arr_idx = 0;
+	for (; (ch = *str) != '\0'; ++str) {
+		duk_uarridx_t old;
+
+		if (ch < '0') {
+			/* non-digit character */
+			goto fail;
+		} else if (ch == '0') {
+			if (str[1] != '\0') {
+				/* leading zeros not allowed */
+				goto fail;
+			}
+			break;
+		} else if (ch > '9') {
+			/* non-digit character */
+			goto fail;
+		}
+		old = arr_idx;
+		arr_idx = (arr_idx * 10) + (ch - '0');
+		if (arr_idx <= old) {
+			/* overflow */
+			goto fail;
+		}
+	}
+
+	if (result) {
+		*result = arr_idx;
+	}
+	duk_set_top(ctx, top);
+	return 1;
+
+fail:
+	duk_set_top(ctx, top);
+	return 0;
+}

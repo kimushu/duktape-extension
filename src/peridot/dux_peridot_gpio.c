@@ -178,7 +178,12 @@ DUK_LOCAL duk_ret_t gpio_constructor(duk_context *ctx)
 DUK_INTERNAL duk_errcode_t dux_peridot_gpio_init(duk_context *ctx)
 {
 	/* [ ... obj ] */
-	duk_get_global_string(ctx, "ParallelIO");
+	duk_get_global_string(ctx, "require");
+	duk_push_string(ctx, "hardware");
+	duk_call(ctx, 1);
+	/* [ ... obj hardware ] */
+	duk_get_prop_string(ctx, -1, "ParallelIO");
+	duk_remove(ctx, -2);
 	/* [ ... obj super ] */
 	dux_push_inherited_named_c_constructor(
 			ctx, -1, "PeridotGPIO", gpio_constructor, 2,

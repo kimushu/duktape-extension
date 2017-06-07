@@ -21,14 +21,13 @@ dux_i2ccon_data;
  */
 
 DUK_INTERNAL_DECL duk_errcode_t dux_i2ccon_init(duk_context *ctx);
-#define dux_i2ccon_tick(ctx)    (DUX_TICK_RET_JOBLESS)
-
-DUK_INTERNAL_DECL void dux_push_i2ccon_constructor(duk_context *ctx);
+#define DUX_INIT_I2CCON     dux_i2ccon_init,
+#define DUX_TICK_I2CCON
 
 #else   /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_I2C */
 
-#define dux_i2ccon_init(ctx)    (DUK_ERR_NONE)
-#define dux_i2ccon_tick(ctx)    (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_I2CCON
+#define DUX_TICK_I2CCON
 
 #endif  /* DUX_OPT_NO_HARDWARE_MODULES || DUX_OPT_NO_I2C */
 #endif  /* !DUX_I2CCON_H_INCLUDED */

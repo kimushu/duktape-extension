@@ -127,21 +127,5 @@ declare namespace Hardware {
          * Value
          */
         value: number;
-
-        /**
-         * PlainBuffer with dux_paraio_data
-         */
-        private "DUX_IPK_PARAIO_DATA": "PlainBuffer";
-        private "DUX_IPK_PARAIO_LINK": "PlainBuffer";
-
-        /**
-         * Constructor (for new bits)
-         * @param width Number of bits
-         * @param offset Offset of LSB (from zero)
-         * @param polarity Polarity (1 means active low)
-         * @param manip Pointer to manipulator table
-         * @param param Arbitrary pointer passed to manipulator
-         */
-        protected constructor(width: number, offset: number, polarity: number, manip: "Pointer", param: "Pointer");
     }
 }

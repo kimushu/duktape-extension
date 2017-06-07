@@ -207,7 +207,7 @@ DUK_LOCAL duk_function_list_entry util_funcs[] = {
 	{ NULL, NULL, 0 }
 };
 
-DUK_LOCAL duk_errcode_t dux_util_entry(duk_context *ctx)
+DUK_LOCAL duk_errcode_t util_entry(duk_context *ctx)
 {
 	/* [ require module exports ] */
 	duk_put_function_list(ctx, 2, util_funcs);
@@ -227,7 +227,7 @@ DUK_LOCAL duk_errcode_t dux_util_entry(duk_context *ctx)
 
 DUK_INTERNAL duk_errcode_t dux_util_init(duk_context *ctx)
 {
-	return dux_modules_register(ctx, "util", dux_util_entry);
+	return dux_modules_register(ctx, "util", util_entry);
 }
 
 DUK_INTERNAL duk_ret_t dux_util_format(duk_context *ctx)

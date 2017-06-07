@@ -25,22 +25,9 @@ extern "C" {
 #include "dux_modules.h"
 #include "dux_promise.h"
 #include "dux_thrpool.h"
-
-#include "node/dux_console.h"
-#include "node/dux_process.h"
-#include "node/dux_timer.h"
-#include "node/dux_util.h"
-
-#include "hw/dux_hardware_io.h"
-#include "hw/dux_paraio.h"
-#include "hw/dux_i2ccon.h"
-#include "hw/dux_spicon.h"
-
+#include "node/dux_node.h"
+#include "hw/dux_hardware.h"
 #include "peridot/dux_peridot.h"
-#include "peridot/dux_peridot_gpio.h"
-#include "peridot/dux_peridot_i2c.h"
-#include "peridot/dux_peridot_spi.h"
-#include "peridot/dux_peridot_servo.h"
 
 #ifdef __cplusplus
 } /* extern "C" */

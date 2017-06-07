@@ -5,12 +5,13 @@
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_GPIO)
 
 DUK_INTERNAL_DECL duk_errcode_t dux_peridot_gpio_init(duk_context *ctx);
-#define dux_peridot_gpio_tick(ctx)  (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PERIDOT_GPIO   dux_peridot_gpio_init,
+#define DUX_TICK_PERIDOT_GPIO
 
 #else   /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_GPIO */
 
-#define dux_peridot_gpio_init(ctx)  (DUK_ERR_NONE)
-#define dux_peridot_gpio_tick(ctx)  (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PERIDOT_GPIO
+#define DUX_TICK_PERIDOT_GPIO
 
 #endif  /* DUX_OPT_NO_HARDWARE_MODULES || DUX_OPT_NO_GPIO */
 

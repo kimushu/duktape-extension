@@ -35,14 +35,16 @@ dux_timer_desc;
 
 DUK_INTERNAL_DECL duk_errcode_t dux_timer_init(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_timer_tick(duk_context *ctx);
+#define DUX_INIT_TIMER  dux_timer_init,
+#define DUX_TICK_TIMER  dux_timer_tick,
 
 DUK_INTERNAL_DECL void dux_timer_arch_init(void);
 DUK_INTERNAL_DECL duk_uint_t dux_timer_arch_current(void);
 
 #else   /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_TIMER */
 
-#define dux_timer_init(ctx) (DUK_ERR_NONE)
-#define dux_timer_tick(ctx) (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_TIMER
+#define DUX_TICK_TIMER
 
 #endif  /* DUX_OPT_NO_NODEJS_MODULES || DUX_OPT_NO_TIMER */
 #endif  /* !DUX_TIMER_H_INCLUDED */

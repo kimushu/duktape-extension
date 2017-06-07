@@ -8,13 +8,15 @@
  */
 DUK_INTERNAL_DECL duk_errcode_t dux_promise_init(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_promise_tick(duk_context *ctx);
+#define DUX_INIT_PROMISE    dux_promise_init,
+#define DUX_TICK_PROMISE    dux_promise_tick,
 
 DUK_INTERNAL_DECL void dux_promise_get_cb_with_bool(duk_context *ctx, duk_idx_t func_idx);
 
 #else   /* !DUX_OPT_NO_PROMISE */
 
-#define dux_promise_init(ctx)   (DUK_ERR_NONE)
-#define dux_promise_tick(ctx)   (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PROMISE
+#define DUX_TICK_PROMISE
 
 DUK_LOCAL
 DUK_INLINE void dux_promise_get_cb_with_bool(dux_context *ctx, duk_idx_t func_idx)

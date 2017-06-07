@@ -46,7 +46,6 @@
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_SPI)
 #include "../dux_internal.h"
 
-DUK_LOCAL const char DUX_IPK_SPICON[]      = DUX_IPK("SPICon");
 DUK_LOCAL const char DUX_IPK_SPICON_DATA[] = DUX_IPK("scData");
 DUK_LOCAL const char DUX_IPK_SPICON_AUX[]  = DUX_IPK("scAux");
 
@@ -373,32 +372,14 @@ DUK_LOCAL const dux_property_list_entry spicon_proto_props[] = {
  */
 DUK_INTERNAL duk_errcode_t dux_spicon_init(duk_context *ctx)
 {
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
+	/* [ ... Hardware ] */
 	dux_push_named_c_constructor(
 			ctx, "SPIConnection", spicon_constructor, 2,
 			NULL, spicon_proto_funcs, NULL, spicon_proto_props);
-	/* [ ... stash constructor ] */
-	duk_put_prop_string(ctx, -2, DUX_IPK_SPICON);
-	/* [ ... stash ] */
-	duk_pop(ctx);
-	/* [ ... ] */
+	/* [ ... Hardware constructor ] */
+	duk_put_prop_string(ctx, -2, "SPIConnection");
+	/* [ ... Hardware ] */
 	return DUK_ERR_NONE;
-}
-
-/*
- * Push SPIConnection constructor (for board dependent implementations)
- */
-DUK_INTERNAL void dux_push_spicon_constructor(duk_context *ctx)
-{
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
-	duk_get_prop_string(ctx, -1, DUX_IPK_SPICON);
-	/* [ ... stash constructor ] */
-	duk_remove(ctx, -2);
-	/* [ ... constructor ] */
 }
 
 #endif  /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_SPI */

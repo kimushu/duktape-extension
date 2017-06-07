@@ -5,7 +5,7 @@
  * Macros
  */
 
-#define DUX_IPK(t)	("\377d" t)
+#define DUX_IPK(t)          ("\377d" t)
 
 /*
  * Constants
@@ -31,14 +31,23 @@ typedef struct dux_property_list_entry
 dux_property_list_entry;
 
 /*
+ * Typedefs
+ */
+typedef duk_errcode_t (*dux_initializer)(duk_context *ctx);
+typedef duk_int_t (*dux_tick_handler)(duk_context *ctx);
+
+/*
  * Functions
  */
 
+DUK_INTERNAL_DECL duk_errcode_t dux_invoke_initializers(duk_context *ctx, ...);
+DUK_INTERNAL_DECL duk_int_t dux_invoke_tick_handlers(duk_context *ctx, ...);
 DUK_INTERNAL_DECL void dux_report_error(duk_context *ctx);
 DUK_INTERNAL_DECL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_idx);
 DUK_INTERNAL_DECL void *dux_to_byte_buffer(duk_context *ctx, duk_idx_t index, duk_size_t *out_size);
 DUK_INTERNAL_DECL duk_int_t dux_require_int_range(duk_context *ctx, duk_idx_t index,
 		duk_int_t minimum, duk_int_t maximum);
+DUK_INTERNAL_DECL duk_bool_t dux_get_array_index(duk_context *ctx, duk_idx_t key_idx, duk_uarridx_t *result);
 
 /*
  * Bind arguments (Function.bind(undefined, args...))
@@ -148,21 +157,20 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 	{
 		dux_put_property_list(ctx, -1, static_props);
 	}
-	if (prototype_funcs || prototype_props)
+	duk_push_object(ctx);
+	/* [ ... constructor obj ] */
+	if (prototype_funcs)
 	{
-		duk_push_object(ctx);
-		/* [ ... constructor obj ] */
-		if (prototype_funcs)
-		{
-			duk_put_function_list(ctx, -1, prototype_funcs);
-		}
-		if (prototype_props)
-		{
-			dux_put_property_list(ctx, -1, prototype_props);
-		}
-		duk_put_prop_string(ctx, -2, "prototype");
-		/* [ ... constructor ] */
+		duk_put_function_list(ctx, -1, prototype_funcs);
 	}
+	if (prototype_props)
+	{
+		dux_put_property_list(ctx, -1, prototype_props);
+	}
+	duk_dup(ctx, -2);
+	duk_put_prop_string(ctx, -2, "constructor");
+	duk_put_prop_string(ctx, -2, "prototype");
+	/* [ ... constructor ] */
 	return result;
 }
 

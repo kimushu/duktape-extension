@@ -5,12 +5,13 @@
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_SPI)
 
 DUK_INTERNAL_DECL duk_errcode_t dux_peridot_spi_init(duk_context *ctx);
-#define dux_peridot_spi_tick(ctx)   (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PERIDOT_SPI    dux_peridot_spi_init,
+#define DUX_TICK_PERIDOT_SPI
 
 #else   /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_SPI */
 
-#define dux_peridot_spi_init(ctx)   (DUK_ERR_NONE)
-#define dux_peridot_spi_tick(ctx)   (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PERIDOT_SPI
+#define DUX_TICK_PERIDOT_SPI
 
 #endif  /* DUX_OPT_NO_HARDWARE_MODULES || DUX_OPT_NO_SPI */
 

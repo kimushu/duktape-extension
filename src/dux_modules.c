@@ -21,14 +21,14 @@ DUK_LOCAL duk_ret_t modules_require(duk_context *ctx)
 	entry = duk_get_pointer(ctx, 3);
 	if (!entry) {
 		/* module is already loaded */
-		/* [ name require obj module ] */
+		/* [ name require obj module:3 ] */
 		duk_get_prop_string(ctx, 3, "exports");
-		/* [ name require obj module exports ] */
+		/* [ name require obj module:3 exports:4 ] */
 		return 1;
 	}
 
 	/* module is not loaded */
-	/* [ name require obj entry ] */
+	/* [ name require obj entry:3 ] */
 	duk_pop(ctx);
 	/* [ name require obj ] */
 	duk_push_object(ctx);
@@ -78,6 +78,7 @@ DUK_INTERNAL duk_errcode_t dux_modules_register(duk_context *ctx, const char *na
 	duk_get_global_string(ctx, "require");
 	/* [ ... require ] */
 	if (!duk_get_prop_string(ctx, -1, DUX_IPK_MODULES_GLOBALS)) {
+		/* [ ... require undefined ] */
 		/* modules are not initialized */
 		duk_pop_2(ctx);
 		return DUK_ERR_ERROR;
@@ -96,4 +97,3 @@ DUK_INTERNAL duk_errcode_t dux_modules_register(duk_context *ctx, const char *na
 	/* [ ... ] */
 	return DUK_ERR_NONE;
 }
-

@@ -2,5 +2,7 @@
 /duktape-*
 /out
 /tester_host
+/tester_host.map
 /tester_host.exe
+/tester_host.exe.map
 /typings/globals/dux/

@@ -26,12 +26,13 @@ DUK_INTERNAL_DECL const dux_paraio_manip dux_paraio_manip_rw;
  */
 
 DUK_INTERNAL_DECL duk_errcode_t dux_paraio_init(duk_context *ctx);
-#define dux_paraio_tick(ctx)    (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PARAIO     dux_paraio_init,
+#define DUX_TICK_PARAIO
 
 #else   /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_PARALLELIO */
 
-#define dux_paraio_init(ctx)    (DUK_ERR_NONE)
-#define dux_paraio_tick(ctx)    (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PARAIO
+#define DUX_TICK_PARAIO
 
 #endif  /* DUX_OPT_NO_HARDWARE_MODULES || DUX_OPT_NO_PARALLELIO */
 #endif  /* !DUX_PARAIO_H_INCLUDED */

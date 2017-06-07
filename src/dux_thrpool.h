@@ -32,6 +32,8 @@ dux_thrpool_block;
 
 DUK_INTERNAL_DECL duk_errcode_t dux_thrpool_init(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_thrpool_tick(duk_context *ctx);
+#define DUX_INIT_THRPOOL    dux_thrpool_init,
+#define DUX_TICK_THRPOOL    dux_thrpool_tick,
 
 DUK_INTERNAL_DECL void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk_uint_t max_threads);
 DUK_INTERNAL_DECL void dux_thrpool_queue(duk_context *ctx, duk_idx_t pool_index,
@@ -39,8 +41,8 @@ DUK_INTERNAL_DECL void dux_thrpool_queue(duk_context *ctx, duk_idx_t pool_index,
 
 #else   /* !DUX_OPT_NO_THRPOOL */
 
-#define dux_thrpool_init(ctx)   (DUK_ERR_NONE)
-#define dux_thrpool_tick(ctx)   (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_THRPOOL
+#define DUX_TICK_THRPOOL
 
 #endif  /* DUX_OPT_NO_THRPOOL */
 #endif  /* !DUX_THRPOOL_H_INCLUDED */

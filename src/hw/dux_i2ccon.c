@@ -31,7 +31,6 @@
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_I2C)
 #include "../dux_internal.h"
 
-DUK_LOCAL const char DUX_IPK_I2CCON[]      = DUX_IPK("I2CCon");
 DUK_LOCAL const char DUX_IPK_I2CCON_DATA[] = DUX_IPK("icData");
 DUK_LOCAL const char DUX_IPK_I2CCON_AUX[]  = DUX_IPK("icAux");
 
@@ -284,32 +283,14 @@ DUK_LOCAL const dux_property_list_entry i2ccon_proto_props[] = {
  */
 DUK_INTERNAL duk_errcode_t dux_i2ccon_init(duk_context *ctx)
 {
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
+	/* [ ... Hardware ] */
 	dux_push_named_c_constructor(
 			ctx, "I2CConnection", i2ccon_constructor, 2,
 			NULL, i2ccon_proto_funcs, NULL, i2ccon_proto_props);
-	/* [ ... stash constructor ] */
-	duk_put_prop_string(ctx, -2, DUX_IPK_I2CCON);
-	/* [ ... stash ] */
-	duk_pop(ctx);
-	/* [ ... ] */
+	/* [ ... Hardware constructor ] */
+	duk_put_prop_string(ctx, -2, "I2CConnection");
+	/* [ ... Hardware ] */
 	return DUK_ERR_NONE;
-}
-
-/*
- * Push I2CConnection constructor (for board dependent implementations)
- */
-DUK_INTERNAL void dux_push_i2ccon_constructor(duk_context *ctx)
-{
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
-	duk_get_prop_string(ctx, -1, DUX_IPK_I2CCON);
-	/* [ ... stash constructor ] */
-	duk_remove(ctx, -2);
-	/* [ ... constructor ] */
 }
 
 #endif  /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_I2C */

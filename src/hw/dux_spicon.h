@@ -27,14 +27,13 @@ dux_spicon_data;
  */
 
 DUK_INTERNAL_DECL duk_errcode_t dux_spicon_init(duk_context *ctx);
-#define dux_spicon_tick(ctx)    (DUX_TICK_RET_JOBLESS)
-
-DUK_INTERNAL_DECL void dux_push_spicon_constructor(duk_context *ctx);
+#define DUX_INIT_SPICON     dux_spicon_init,
+#define DUX_TICK_SPICON
 
 #else   /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_SPI */
 
-#define dux_spicon_init(ctx)    (DUK_ERR_NONE)
-#define dux_spicon_tick(ctx)    (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_SPICON
+#define DUX_TICK_SPICON
 
 #endif  /* DUX_OPT_NO_HARDWARE_MODULES || DUX_OPT_NO_SPI */
 #endif  /* !DUX_SPICON_H_INCLUDED */

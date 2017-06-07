@@ -5,12 +5,13 @@
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_I2C)
 
 DUK_INTERNAL_DECL duk_errcode_t dux_peridot_i2c_init(duk_context *ctx);
-#define dux_peridot_i2c_tick(ctx)   (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PERIDOT_I2C    dux_peridot_i2c_init,
+#define DUX_TICK_PERIDOT_I2C
 
 #else   /* !DUX_OPT_NO_HARDWARE_MODULES && !DUX_OPT_NO_I2C */
 
-#define dux_peridot_i2c_init(ctx)   (DUK_ERR_NONE)
-#define dux_peridot_i2c_tick(ctx)   (DUX_TICK_RET_JOBLESS)
+#define DUX_INIT_PERIDOT_I2C
+#define DUX_TICK_PERIDOT_I2C
 
 #endif  /* DUX_OPT_NO_HARDWARE_MODULES || DUX_OPT_NO_I2C */
 

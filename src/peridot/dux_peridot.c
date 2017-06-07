@@ -32,14 +32,19 @@ DUK_LOCAL const char DUX_IPK_PERIDOT[] = DUX_IPK("Peridot");
 DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
 {
 	/* [ key ] */
-	if (!duk_get_global_string(ctx, "ParallelIO"))
+	duk_get_global_string(ctx, "require");
+	duk_push_string(ctx, "hardware");
+	duk_call(ctx, 1);
+	/* [ key hardware ] */
+	if (!duk_get_prop_string(ctx, 1, "ParallelIO")) {
 	{
-		/* [ key undefined ] */
+		/* [ key hardware undefined ] */
 		return 0; /* return undefined */
 	}
+	duk_remove(ctx, 1);
 	/* [ key constructor ] */
-	duk_push_uint(ctx, 1);                                      /* width */
 	duk_push_uint(ctx, PERIDOT_SWI_RSTSTS_LED_OFST);            /* offset */
+	duk_push_uint(ctx, PERIDOT_SWI_RSTSTS_LED_WIDTH);           /* width */
 	duk_push_uint(ctx, 0);                                      /* polarity */
 	duk_push_pointer(ctx, (void *)&dux_paraio_manip_rw);        /* manip */
 	duk_push_pointer(ctx, IOADDR_PERIDOT_SWI_RSTSTS(SWI_BASE)); /* pointer */
@@ -51,10 +56,28 @@ DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
 	/* [ this obj key ] */
 	duk_dup(ctx, 1);
 	/* [ this obj key obj ] */
-	duk_def_prop(ctx, 0, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE |
-			DUK_DEFPROP_CLEAR_WRITABLE);
+	duk_def_prop(ctx, 0, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_FORCE);
 	/* [ this obj ] */
 	return 1; /* return obj */
+}
+
+/*
+ * Entry of Peridot module
+ */
+DUK_LOCAL duk_errcode_t peridot_entry(duk_context *ctx)
+{
+	/* [ require module exports ] */
+	duk_push_string(ctx, "startLed");
+	duk_push_c_function(ctx, peridot_startLed_getter, 1 /* with key */);
+	duk_def_prop(ctx, -3, DUK_DEFPROP_HAVE_GETTER | DUK_DEFPROP_SET_ENUMERABLE);
+
+	return dux_invoke_initializers(ctx,
+		DUX_INIT_PERIDOT_GPIO
+		DUX_INIT_PERIDOT_I2C
+		DUX_INIT_PERIDOT_SPI
+		DUX_INIT_PERIDOT_SERVO
+		NULL
+	);
 }
 
 /*
@@ -62,59 +85,7 @@ DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
  */
 DUK_INTERNAL duk_errcode_t dux_peridot_init(duk_context *ctx)
 {
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
-	duk_push_object(ctx);
-	/* [ ... stash obj ] */
-	duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT);
-	/* [ ... stash ] */
-	duk_pop(ctx);
-	/* [ ... ] */
-	duk_push_object(ctx);
-	/* [ ... obj ] */
-	duk_push_string(ctx, "startLed");
-	duk_push_c_function(ctx, peridot_startLed_getter, 1 /* with key */);
-	duk_def_prop(ctx, -3, DUK_DEFPROP_HAVE_GETTER | DUK_DEFPROP_SET_ENUMERABLE);
-
-#define INIT(submodule) \
-	do { \
-		duk_errcode_t result = dux_peridot_##submodule##_init(ctx); \
-		if (result != DUK_ERR_NONE) \
-		{ \
-			duk_pop(ctx); \
-			return result; \
-		} \
-	} while (0)
-
-	INIT(gpio);
-	INIT(i2c);
-	INIT(spi);
-	INIT(servo);
-
-#undef INIT
-
-	/* [ ... obj ] */
-	duk_put_global_string(ctx, "Peridot");
-	/* [ ... ] */
-	return DUK_ERR_NONE;
-}
-
-/*
- * Push stash object for Peridot
- */
-DUK_INTERNAL duk_bool_t dux_push_peridot_stash(duk_context *ctx)
-{
-	duk_bool_t result;
-
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
-	result = duk_get_prop_string(ctx, -1, DUX_IPK_PERIDOT);
-	/* [ ... stash obj ] */
-	duk_remove(ctx, -2);
-	/* [ ... obj ] */
-	return result;
+	return dux_modules_register(ctx, "peridot", peridot_entry);
 }
 
 /*

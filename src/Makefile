@@ -7,18 +7,20 @@ SOURCES = \
 	dux_modules.c \
 	dux_thrpool.c \
 	dux_promise_simplified.c \
-	node/dux_process.c \
-	node/dux_util.c \
-	node/dux_console.c \
-	node/dux_timer.c \
-		altera_hal/dux_timer_alt.c \
-		linux/dux_timer_linux.c \
-		win32/dux_timer_win32.c \
-	altera_hal/dux_hardware_io_alt.c \
-	pc/dux_hardware_io_pc.c \
-	hw/dux_paraio.c \
-	hw/dux_i2ccon.c \
-	hw/dux_spicon.c \
+	node/dux_node.c \
+		node/dux_process.c \
+		node/dux_util.c \
+		node/dux_console.c \
+		node/dux_timer.c \
+			altera_hal/dux_timer_alt.c \
+			linux/dux_timer_linux.c \
+			win32/dux_timer_win32.c \
+	hw/dux_hardware.c \
+		altera_hal/dux_hardware_io_alt.c \
+		pc/dux_hardware_io_pc.c \
+		hw/dux_paraio.c \
+		hw/dux_i2ccon.c \
+		hw/dux_spicon.c \
 	peridot/dux_peridot.c \
 		peridot/dux_peridot_gpio.c \
 		peridot/dux_peridot_i2c.c \
