@@ -1,7 +1,7 @@
 DESTDIR = ../dist
 COMBINE = python ../tools/combine_src.py
 
-TARGETS = $(addprefix $(DESTDIR)/,dux_all.c dux_all.h dux_all.d.ts)
+TARGETS = $(addprefix $(DESTDIR)/,dux.c dux.h dux.d.ts)
 SOURCES = \
 	dux_basis.c \
 	dux_modules.c \
@@ -28,7 +28,7 @@ SOURCES = \
 		peridot/dux_peridot_servo.c
 
 PREAMBLE = dux_preamble.h
-DEP = .dux_all.dep
+DEP = .dux.dep
 
 .PHONY: all
 all: $(TARGETS)
@@ -43,16 +43,16 @@ test: $(TARGETS)
 
 .PRECIOUS: $(TARGETS)
 
-$(DESTDIR)/dux_all.c: $(PREAMBLE) $(SOURCES) $(MAKEFILE_LIST)
+$(DESTDIR)/dux.c: $(PREAMBLE) $(SOURCES) $(MAKEFILE_LIST)
 	mkdir -p $(dir $@)
 	$(COMBINE) --line --header $< \
 		-e duktape.h -o $@ --dep $(DEP) $(SOURCES) || (rm -f $@; false)
 
 -include $(DEP)
 
-$(DESTDIR)/dux_all.h: $(PREAMBLE) dux_all.h
+$(DESTDIR)/dux.h: $(PREAMBLE) dux.h
 	mkdir -p $(dir $@)
 	cat $^ > $@ || (rm -f $@; false)
 
-$(DESTDIR)/dux_all.d.ts: $(wildcard $(SOURCES:.c=.d.ts))
+$(DESTDIR)/dux.d.ts: $(wildcard $(SOURCES:.c=.d.ts))
 	cat $^ > $@

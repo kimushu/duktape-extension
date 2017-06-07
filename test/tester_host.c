@@ -1,5 +1,5 @@
 #include "duktape.h"
-#include "dux_all.h"
+#include "dux.h"
 #include <stdio.h>
 
 static duk_context *g_ctx;

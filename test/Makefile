@@ -6,7 +6,7 @@ DUK_DIR = duktape-$(DUK_VERSION)/src
 DUK_SOURCE = $(DUK_DIR)/duktape.c
 
 DUX_DIR = ../dist
-DUX_SOURCE = $(DUX_DIR)/dux_all.c
+DUX_SOURCE = $(DUX_DIR)/dux.c
 
 ifeq ($(OS),Windows_NT)
 TARGET = tester_host.exe
@@ -30,7 +30,7 @@ test: $(TARGET) tsc
 .PHONY: tsc
 tsc:
 	mkdir -p typings/globals/dux
-	cp $(DUX_DIR)/dux_all.d.ts typings/globals/dux/index.d.ts
+	cp $(DUX_DIR)/dux.d.ts typings/globals/dux/index.d.ts
 	$(shell npm bin)/tsc -p .
 
 .PHONY: dux
