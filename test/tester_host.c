@@ -2,6 +2,11 @@
 #include "dux.h"
 #include <stdio.h>
 
+static const char CJS_PROLOGUE[] = "(function(require,module,exports){";
+static const int CJS_PROLOGUE_LEN = sizeof(CJS_PROLOGUE) - 1;
+static const char CJS_EPILOGUE[] = "})(require,m={exports:{}},m.exports)";
+static const int CJS_EPILOGUE_LEN = sizeof(CJS_EPILOGUE) - 1;
+
 static duk_context *g_ctx;
 
 extern void espresso_init(duk_context *ctx);
@@ -20,7 +25,7 @@ int main(int argc, char *argv[])
 	int i;
 	FILE *fp;
 	int length;
-	char *source;
+	char *source, *src_body;
 	duk_context *ctx;
 	int test_done;
 	int failed = 0;
@@ -44,17 +49,20 @@ int main(int argc, char *argv[])
 		fseek(fp, 0, SEEK_END);
 		length = ftell(fp);
 		fseek(fp, 0, SEEK_SET);
-		source = (char *)malloc(length);
+		source = (char *)malloc(length + CJS_PROLOGUE_LEN + CJS_EPILOGUE_LEN);
 		if (!source) {
 			fclose(fp);
 			fprintf(stderr, "cannot allocate memory for source\n");
 			exit(1);
 		}
-		length = fread(source, 1, length, fp);
+		memcpy(source, CJS_PROLOGUE, CJS_PROLOGUE_LEN);
+		src_body = source + CJS_PROLOGUE_LEN;
+		length = fread(src_body, 1, length, fp);
+		memcpy(src_body + length, CJS_EPILOGUE, CJS_EPILOGUE_LEN);
 		fclose(fp);
 
 		fprintf(stderr, "INFO: eval %s\n", argv[i]);
-		duk_eval_lstring_noresult(ctx, source, length);
+		duk_eval_lstring_noresult(ctx, source, length + CJS_PROLOGUE_LEN + CJS_EPILOGUE_LEN);
 		free(source);
 	}
 
