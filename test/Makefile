@@ -29,6 +29,7 @@ test: $(TARGET) tsc
 
 .PHONY: tsc
 tsc:
+	mkdir -p typings/globals/dux
 	cp $(DUX_DIR)/dux_all.d.ts typings/globals/dux/index.d.ts
 	$(shell npm bin)/tsc -p .
 
