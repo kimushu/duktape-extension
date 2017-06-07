@@ -44,6 +44,7 @@ $(TARGET): $(DUK_SOURCE) $(DUX_SOURCE) $(C_SOURCES)
 .PHONY: clean
 clean:
 	rm -f $(TARGET)
+	rm -rf out
 
 $(DUK_SOURCE): $(DUK_ARCHIVE)
 	tar xf $< $(dir $(DUK_SOURCE))

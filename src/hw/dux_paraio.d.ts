@@ -1,5 +1,9 @@
-declare namespace Hardware {
-    export class ParallelIO {
+declare namespace Dux {
+    interface ParallelIOConstructor {
+        readonly prototype: ParallelIO;
+    }
+
+    interface ParallelIO {
         /**
          * Assert all bits according to polarity settings
          */
@@ -128,4 +132,9 @@ declare namespace Hardware {
          */
         value: number;
     }
+}
+
+declare module "hardware" {
+    const ParallelIO: Dux.ParallelIOConstructor;
+    type ParallelIO = Dux.ParallelIO;
 }

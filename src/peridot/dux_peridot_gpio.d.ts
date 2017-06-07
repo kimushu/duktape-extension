@@ -1,0 +1,16 @@
+declare namespace Dux {
+    interface PeridotGPIOConstructor {
+        /**
+         * Construct a new GPIO instance for given pin (or pins)
+         */
+        new (begin: number | string, width?: number): PeridotGPIO;
+    }
+
+    interface PeridotGPIO extends ParallelIO {
+    }
+}
+
+declare module "peridot" {
+    const GPIO: Dux.PeridotGPIOConstructor;
+    type GPIO = Dux.PeridotGPIO;
+}

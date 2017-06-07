@@ -1,5 +1,8 @@
-/**
- * Load module
- * @param name Name of module
- */
-declare function require(name: string): any;
+interface DuxRequireFunction {
+    /**
+     * Load dux internal module
+     */
+    (id: string): any;
+}
+
+declare const require: DuxRequireFunction;
