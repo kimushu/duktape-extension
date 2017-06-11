@@ -7,8 +7,8 @@ describe("timers", () => {
         it("throws TypeError if delay is a number", () => {
             assert.throws(() => setTimeout(() => {}, null), TypeError);
         });
-        it("returns a number and invokes callback with correct arguments", (done) => {
-            let id = setTimeout((a, b, c) => {
+        it("returns an object with ref()&unref() and invokes callback with correct arguments", (done) => {
+            let timeout = setTimeout((a, b, c) => {
                 try {
                     assert.strictEqual(a, 123);
                     assert.strictEqual(b, "foo");
@@ -18,7 +18,8 @@ describe("timers", () => {
                     done(error);
                 }
             }, 0, 123, "foo");
-            assert.isNumber(id);
+            assert.isFunction(timeout.ref);
+            assert.isFunction(timeout.unref);
         });
         it("invokes callback in expiration order", (done) => {
             let i = 0;
@@ -51,18 +52,18 @@ describe("timers", () => {
     });
     describe("clearTimeout()", () => {
         it("is a function", () => assert.isFunction(clearTimeout));
-        it("throws TypeError if id is not a number", () => {
+        it("throws TypeError if timeout is not valid", () => {
             assert.throws(() => clearTimeout(null), TypeError);
         });
         it("throws RangeError if id does not exist", () => {
-            assert.throws(() => clearTimeout(0), RangeError);
+            assert.throws(() => clearTimeout(<any>{}), RangeError);
         });
         it("stops timer before callback is invoked", (done) => {
-            let id = setTimeout(() => {
+            let timeout = setTimeout(() => {
                 done(new Error("triggered"));
             }, 200);
             setTimeout(() => {
-                clearTimeout(id);
+                clearTimeout(timeout);
             }, 100);
             setTimeout(() => {
                 done();
@@ -77,9 +78,9 @@ describe("timers", () => {
         it("throws TypeError if delay is a number", () => {
             assert.throws(() => setInterval(() => {}, null), TypeError);
         });
-        it("returns a number and invokes callback multiple times with correct arguments", (done) => {
+        it("returns an object with ref() & unref() and invokes callback multiple times with correct arguments", (done) => {
             let repeat = 0;
-            let id = setInterval((a, b, c) => {
+            let timeout = setInterval((a, b, c) => {
                 try {
                     assert.strictEqual(a, 456);
                     assert.strictEqual(b, "bar");
@@ -89,9 +90,10 @@ describe("timers", () => {
                     done(error);
                 }
             }, 100, 456, "bar");
-            assert.isNumber(id);
+            assert.isFunction(timeout.ref);
+            assert.isFunction(timeout.unref);
             setTimeout(() => {
-                clearInterval(id);
+                clearInterval(timeout);
                 try {
                     assert.strictEqual(repeat, 3);
                 } catch (error) {

@@ -11,6 +11,7 @@ enum
 {
 	DUX_TIMER_STARTED = (1 << 0),
 	DUX_TIMER_ONESHOT = (1 << 1),
+	DUX_TIMER_UNREF   = (1 << 2),
 };
 
 /*
