@@ -1,3 +1,6 @@
+/// <reference path="./dux_peridot.d.ts"/>
+/// <reference path="../hw/dux_i2ccon.d.ts"/>
+
 declare namespace Dux {
     interface PeridotI2CPins {
         /* SCL (Clock) */

@@ -1,3 +1,5 @@
+/// <reference path="../hw/dux_paraio.d.ts"/>
+
 declare namespace Dux {
     /**
      * Pin specify (both number and string with prefix "D"/"d" are accepted)

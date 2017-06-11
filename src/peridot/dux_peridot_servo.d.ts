@@ -1,3 +1,5 @@
+/// <reference path="./dux_peridot.d.ts"/>
+
 declare namespace Dux {
     interface PeridotServoConstructor {
         readonly prototype: PeridotServo;

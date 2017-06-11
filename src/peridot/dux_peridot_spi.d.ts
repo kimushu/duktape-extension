@@ -1,3 +1,6 @@
+/// <reference path="./dux_peridot.d.ts"/>
+/// <reference path="../hw/dux_spicon.d.ts"/>
+
 declare namespace Dux {
     interface PeridotSPIPins {
         /** SCLK (Clock) */
