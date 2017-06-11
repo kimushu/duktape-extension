@@ -28,6 +28,7 @@ extern "C" {
 #include "node/dux_node.h"
 #include "hw/dux_hardware.h"
 #include "peridot/dux_peridot.h"
+#include "node/dux_immediate.h"
 
 #ifdef __cplusplus
 } /* extern "C" */

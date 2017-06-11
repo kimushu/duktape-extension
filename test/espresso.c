@@ -4,6 +4,7 @@
 
 static const char ESPRESSO_DATA[] = "\xff" "espData";
 static const char ESPRESSO_ROOT[] = "\xff" "espRoot";
+static const char ESPRESSO_TICK[] = "\xff" "espTick";
 
 #define INDENT 4
 #define FLAG_SKIP	0x40000000
@@ -847,6 +848,12 @@ static const duk_function_list_entry assert_funcs[] = {
 	{ NULL, NULL, 0 }
 };
 
+static duk_ret_t espresso_tick_getter(duk_context *ctx)
+{
+	duk_get_global_string(ctx, ESPRESSO_TICK);
+	return 1;
+}
+
 void espresso_init(duk_context *ctx)
 {
 	void *root_suite;
@@ -855,11 +862,15 @@ void espresso_init(duk_context *ctx)
 	/* [ ... ] */
 	duk_push_global_object(ctx);
 	/* [ ... global ] */
+
+	// Create root
 	duk_push_array(ctx);
 	/* [ ... global arr ] */
 	root_suite = duk_require_heapptr(ctx, -1);
 	duk_put_prop_string(ctx, -2, ESPRESSO_ROOT);
 	/* [ ... global ] */
+
+	// Create data
 	duk_push_fixed_buffer(ctx, sizeof(espresso_data));
 	/* [ ... global buf ] */
 	data = (espresso_data *)duk_require_buffer(ctx, -1, NULL);
@@ -871,18 +882,35 @@ void espresso_init(duk_context *ctx)
 	data->failed = 0;
 	duk_put_prop_string(ctx, -2, ESPRESSO_DATA);
 	/* [ ... global ] */
+
+	// Create tick value
+	duk_push_uint(ctx, 0);
+	/* [ ... global uint ] */
+	duk_put_prop_string(ctx, -2, ESPRESSO_TICK);
+	/* [ ... global ] */
 	duk_put_function_list(ctx, -1, espresso_funcs);
+
+	// Define tick getter
+	duk_push_string(ctx, "espresso_tick");
+	/* [ ... global str ] */
+	duk_push_c_function(ctx, espresso_tick_getter, 0);
+	/* [ ... global str func ] */
+	duk_def_prop(ctx, -3, DUK_DEFPROP_HAVE_GETTER);
+	/* [ ... global ] */
+
+	// Define assertion module
 	duk_push_c_function(ctx, assert_is_ok, 2);
 	/* [ ... global assert ] */
 	duk_put_function_list(ctx, -1, assert_funcs);
 	/* [ ... global assert ] */
 	duk_put_prop_string(ctx, -2, "assert");
 	/* [ ... global ] */
+
 	duk_pop(ctx);
 	/* [ ... ] */
 }
 
-int espresso_is_finished(duk_context *ctx, int *passed, int *skipped, int *failed)
+int espresso_tick(duk_context *ctx, int *passed, int *skipped, int *failed)
 {
 	espresso_data *data = espresso_get_data(ctx);
 	if (passed) {
@@ -894,6 +922,10 @@ int espresso_is_finished(duk_context *ctx, int *passed, int *skipped, int *faile
 	if (failed) {
 		*failed = data->failed;
 	}
+	duk_get_global_string(ctx, ESPRESSO_TICK);
+	duk_push_uint(ctx, duk_require_uint(ctx, -1) + 1);
+	duk_put_global_string(ctx, ESPRESSO_TICK);
+	duk_pop(ctx);
 	return (data->current_suite == NULL);
 }
 

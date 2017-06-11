@@ -15,6 +15,7 @@ SOURCES = \
 			altera_hal/dux_timer_alt.c \
 			linux/dux_timer_linux.c \
 			win32/dux_timer_win32.c \
+		node/dux_immediate.c \
 	hw/dux_hardware.c \
 		altera_hal/dux_hardware_io_alt.c \
 		pc/dux_hardware_io_pc.c \

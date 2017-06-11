@@ -18,6 +18,7 @@ describe("timers", () => {
                     done(error);
                 }
             }, 0, 123, "foo");
+            assert.instanceOf(timeout, Object);
             assert.isFunction(timeout.ref);
             assert.isFunction(timeout.unref);
         });
@@ -118,6 +119,7 @@ describe("timers", () => {
                     done(error);
                 }
             }, 100, 456, "bar");
+            assert.instanceOf(timeout, Object);
             assert.isFunction(timeout.ref);
             assert.isFunction(timeout.unref);
             setTimeout(() => {
@@ -136,6 +138,74 @@ describe("timers", () => {
                     }
                 }, 100);
             }, 350);
+        });
+    });
+    describe("setImmediate", () => {
+        let getTick = function() { return this.espresso_tick; };
+        it("throws TypeError if no argument specified", () => {
+            assert.throws(() => (<any>setImmediate)(), TypeError);
+        });
+        it("throws TypeError if callback is not callable", () => {
+            assert.throws(() => setImmediate(null), TypeError);
+        });
+        it("returns an object and invokes callback with correct arguments in current loop", (done) => {
+            let i = 0;
+            let curTick = getTick();
+            let immed = setImmediate(() => {
+                if (++i === 1) {
+                    if (getTick() === curTick) {
+                        return done();
+                    }
+                    return done("invalid tick cycle");
+                }
+                return done("invalid callback");
+            });
+            assert.instanceOf(immed, Object);
+        });
+        it("invokes callbacks in queued order", (done) => {
+            let i = 0;
+            setImmediate(() => {
+                if (i === 0) {
+                    i = 1;
+                } else {
+                    done("this callback should be first");
+                }
+            });
+            setImmediate(() => {
+                if (i === 1) {
+                    i = 2;
+                    done();
+                } else {
+                    done("this callback should be second");
+                }
+            });
+        });
+        it("invokes callback in next loop if setImmediate called inside callback", (done) => {
+            setImmediate(() => {
+                let curTick = getTick();
+                setImmediate(() => {
+                    if (getTick() === (curTick + 1)) {
+                        done();
+                    } else {
+                        done("invalid tick");
+                    }
+                });
+            });
+        });
+    });
+    describe("clearImmediate", () => {
+        it("throws TypeError if immediate is not an object", () => {
+            assert.throws(() => clearImmediate(null), TypeError);
+        });
+        it("returns undefined and cancels immediate", (done) => {
+            let imm1 = setImmediate(() => done("should not be called"));
+            let imm2 = setImmediate(() => done());
+            assert.isUndefined(clearImmediate(imm1));
+        });
+        it("throws RangeError if immediate has been already cleared", () => {
+            let imm = setImmediate(() => null);
+            clearImmediate(imm);
+            assert.throws(() => clearImmediate(imm), RangeError);
         });
     });
 });

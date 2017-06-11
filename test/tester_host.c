@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 
 	fprintf(stderr, "INFO: event loop starting\n");
 	for (;;) {
-		test_done = espresso_is_finished(ctx, NULL, NULL, &failed);
+		test_done = espresso_tick(ctx, NULL, NULL, &failed);
 		if (!dux_tick(ctx)) {
 			if (!espresso_exit_handler(ctx)) {
 				break;

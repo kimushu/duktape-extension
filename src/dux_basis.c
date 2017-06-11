@@ -19,6 +19,7 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 		DUX_INIT_NODE
 		DUX_INIT_HARDWARE
 		DUX_INIT_PERIDOT
+		DUX_INIT_IMMEDIATE
 		NULL
 	);
 }
@@ -36,6 +37,7 @@ DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 		DUX_TICK_NODE
 		DUX_TICK_HARDWARE
 		DUX_TICK_PERIDOT
+		DUX_TICK_IMMEDIATE	/* IMMEDIATE must be the last tick handler */
 		NULL
 	);
 

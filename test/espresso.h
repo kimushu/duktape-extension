@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 extern void espresso_init(duk_context *ctx);
-extern int espresso_is_finished(duk_context *ctx, int *passed, int *skipped, int *failed);
+extern int espresso_tick(duk_context *ctx, int *passed, int *skipped, int *failed);
 extern int espresso_exit_handler(duk_context *ctx);
 
 #ifdef __cplusplus
