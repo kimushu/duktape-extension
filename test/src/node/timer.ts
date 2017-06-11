@@ -21,7 +21,7 @@ describe("timers", () => {
             assert.isFunction(timeout.ref);
             assert.isFunction(timeout.unref);
         });
-        it("invokes callback in expiration order", (done) => {
+        it("invokes callbacks in expiration order", (done) => {
             let i = 0;
             setTimeout(() => {
                 try {
@@ -48,6 +48,34 @@ describe("timers", () => {
                     done(error);
                 }
             }, 200);
+        });
+        it("unref() returns undefined and timeout breaks event-loop", (done) => {
+            let i = 0;
+            let timeout = setTimeout(() => {
+                (function(){ delete this.espresso_done; })();
+                if (i === 1) {
+                    done();
+                } else {
+                    done("failed to detect event-loop break");
+                }
+            }, 200);
+            assert.isUndefined(timeout.unref());
+            (function(){ this.espresso_done = () => { i = 1; }; })();
+        });
+        it("2nd call of unref() is ignored", (done) => {
+            let i = 0;
+            let timeout = setTimeout(() => {
+                (function(){ delete this.espresso_done; })();
+                if (i === 0) {
+                    done();
+                } else {
+                    done("event-loop incorrectly finished");
+                }
+            }, 200);
+            assert.isUndefined(timeout.unref());    // 1st
+            assert.isUndefined(timeout.unref());    // 2nd
+            assert.isUndefined(timeout.ref());
+            (function(){ this.espresso_done = () => { i = 1; }; })();
         });
     });
     describe("clearTimeout()", () => {

@@ -1,5 +1,6 @@
 #include "duktape.h"
 #include "dux.h"
+#include "espresso.h"
 #include <stdio.h>
 
 static const char CJS_PROLOGUE[] = "(function(require,module,exports){";
@@ -8,9 +9,6 @@ static const char CJS_EPILOGUE[] = "})(require,m={exports:{}},m.exports)";
 static const int CJS_EPILOGUE_LEN = sizeof(CJS_EPILOGUE) - 1;
 
 static duk_context *g_ctx;
-
-extern void espresso_init(duk_context *ctx);
-extern int espresso_is_finished(duk_context *ctx, int *passed, int *skipped, int *failed);
 
 static void my_fatal(void *udata, const char *msg)
 {
@@ -73,7 +71,9 @@ int main(int argc, char *argv[])
 	for (;;) {
 		test_done = espresso_is_finished(ctx, NULL, NULL, &failed);
 		if (!dux_tick(ctx)) {
-			break;
+			if (!espresso_exit_handler(ctx)) {
+				break;
+			}
 		} else if (test_done) {
 			fprintf(stderr, "WARN: async operations left after completion of test\n");
 			break;

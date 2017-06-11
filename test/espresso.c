@@ -897,3 +897,15 @@ int espresso_is_finished(duk_context *ctx, int *passed, int *skipped, int *faile
 	return (data->current_suite == NULL);
 }
 
+int espresso_exit_handler(duk_context *ctx)
+{
+	int result = 0;
+	if (duk_get_global_string(ctx, "espresso_done")) {
+		if (duk_is_callable(ctx, -1)) {
+			duk_call(ctx, 0);
+			result = 1;
+		}
+	}
+	duk_pop(ctx);
+	return result;
+}
