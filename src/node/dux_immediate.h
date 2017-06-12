@@ -12,7 +12,7 @@ DUK_INTERNAL_DECL duk_int_t dux_immediate_tick(duk_context *ctx);
 #define DUX_INIT_IMMEDIATE  dux_immediate_init,
 #define DUX_TICK_IMMEDIATE  dux_immediate_tick,
 
-#else   /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_TIMER */
+#else   /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_IMMEDIATE */
 
 #define DUX_INIT_IMMEDIATE
 #define DUX_TICK_IMMEDIATE
