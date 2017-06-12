@@ -3,6 +3,7 @@
 
 #if !defined(DUX_OPT_NO_NODEJS_MODULES)
 
+#include "dux_events.h"
 #include "dux_console.h"
 #include "dux_process.h"
 #include "dux_timer.h"

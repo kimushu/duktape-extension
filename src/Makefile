@@ -8,6 +8,7 @@ SOURCES = \
 	dux_thrpool.c \
 	dux_promise_simplified.c \
 	node/dux_node.c \
+		node/dux_events.c \
 		node/dux_process.c \
 		node/dux_util.c \
 		node/dux_console.c \

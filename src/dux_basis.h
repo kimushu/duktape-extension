@@ -43,6 +43,7 @@ typedef duk_int_t (*dux_tick_handler)(duk_context *ctx);
 DUK_INTERNAL_DECL duk_errcode_t dux_invoke_initializers(duk_context *ctx, ...);
 DUK_INTERNAL_DECL duk_int_t dux_invoke_tick_handlers(duk_context *ctx, ...);
 DUK_INTERNAL_DECL void dux_report_error(duk_context *ctx);
+DUK_INTERNAL_DECL void dux_report_warning(duk_context *ctx);
 DUK_INTERNAL_DECL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_idx);
 DUK_INTERNAL_DECL void *dux_to_byte_buffer(duk_context *ctx, duk_idx_t index, duk_size_t *out_size);
 DUK_INTERNAL_DECL duk_int_t dux_require_int_range(duk_context *ctx, duk_idx_t index,

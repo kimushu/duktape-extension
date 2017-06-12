@@ -112,6 +112,14 @@ DUK_INTERNAL void dux_report_error(duk_context *ctx)
 }
 
 /*
+ * Top level warning reporter
+ */
+DUK_INTERNAL void dux_report_warning(duk_context *ctx)
+{
+	fprintf(stderr, "Warning: %s\n", duk_safe_to_string(ctx, -1));
+}
+
+/*
  * Empty function for Object.create
  */
 DUK_LOCAL duk_ret_t dux_no_operation(duk_context *ctx)
