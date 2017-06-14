@@ -387,7 +387,7 @@ DUK_LOCAL duk_ret_t events_proto_getMaxListeners(duk_context *ctx)
     if (!duk_get_prop_string(ctx, 0, DUX_KEY_MAXLISTENERS)) {
         return DUK_RET_TYPE_ERROR;
     }
-    /* [ this uint/undefined ] */
+    /* [ this number/undefined ] */
     return 1;
 }
 
@@ -686,20 +686,19 @@ DUK_LOCAL duk_ret_t events_proto_setMaxListeners(duk_context *ctx)
 {
     duk_int_t value;
 
-    /* [ int ] */
+    /* [ number ] */
     value = duk_require_int(ctx, 0);
     if (value < 0) {
         return DUK_RET_TYPE_ERROR;
     }
     duk_push_this(ctx);
-    /* [ int this ] */
-    if (!duk_has_prop_string(ctx, 1, DUX_KEY_MAXLISTENERS)) {
+    duk_swap(ctx, 0, 1);
+    /* [ this number ] */
+    if (!duk_has_prop_string(ctx, 0, DUX_KEY_MAXLISTENERS)) {
         return DUK_RET_TYPE_ERROR;
     }
-    duk_push_int(ctx, value);
-    /* [ int this int ] */
-    duk_put_prop_string(ctx, 1, DUX_KEY_MAXLISTENERS);
-    /* [ int this ] */
+    duk_put_prop_string(ctx, 0, DUX_KEY_MAXLISTENERS);
+    /* [ this ] */
     return 1;
 }
 
