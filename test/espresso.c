@@ -423,6 +423,42 @@ static duk_ret_t assert_is_not_string(duk_context *ctx)
 	return 0;
 }
 
+static duk_ret_t assert_is_true(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (!duk_is_boolean(ctx, 0) || !duk_get_boolean(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is true", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_not_true(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_boolean(ctx, 0) && duk_get_boolean(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is not true", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_false(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (!duk_is_boolean(ctx, 0) || duk_get_boolean(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is false", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_not_false(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_boolean(ctx, 0) && !duk_get_boolean(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is not false", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
 static duk_ret_t assert_instanceof(duk_context *ctx)
 {
 	/* [ value constructor message ] */
@@ -827,6 +863,10 @@ static const duk_function_list_entry assert_funcs[] = {
 	{ "isNotFunction", assert_is_not_function, 2 },
 	{ "isString", assert_is_string, 2 },
 	{ "isNotString", assert_is_not_string, 2 },
+	{ "isTrue", assert_is_true, 2 },
+	{ "isNotTrue", assert_is_not_true, 2 },
+	{ "isFalse", assert_is_false, 2 },
+	{ "isNotFalse", assert_is_not_false, 2 },
 	{ "instanceOf", assert_instanceof, 3 },
 	{ "notInstanceOf", assert_not_instanceof, 3 },
 	{ "isUndefined", assert_is_undefined, 2 },

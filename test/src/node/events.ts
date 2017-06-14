@@ -82,4 +82,69 @@ describe("Events", () => {
             });
         });
     });
+    describe("emit()", () => {
+        it("returns true and invokes listeners in correct order", () => {
+            let e = new EventEmitter();
+            let seq = 0;
+            let e1 = {x: "hoge"};
+            let e2 = 123;
+            function check(args: any[]) {
+                return args.length === 2 && args[0] === e1 && args[1] === e2;
+            }
+            e.addListener    ("foo", (...args) => { seq = (check(args) && seq === 1) ? 2 : -1; });
+            e.prependListener("foo", (...args) => { seq = (check(args) && seq === 0) ? 1 : -1; });
+            e.on             ("foo", (...args) => { seq = (check(args) && seq === 2) ? 3 : -1; });
+            e.on             ("fooa", () => { seq = -1; });
+            assert.isTrue(e.emit("foo", e1, e2));
+            assert.strictEqual(seq, 3);
+        });
+        it("returns false when no listener called", () => {
+            let e = new EventEmitter();
+            let seq = 0;
+            e.on("foo", () => { seq = -1; })
+            assert.isFalse(e.emit("fooa"));
+            assert.strictEqual(seq, 0);
+        })
+        it("is not affected by removing/adding listener in callback", () => {
+            let e = new EventEmitter();
+            let seq = 0;
+            let f2 = () => { seq = (seq === 1) ? 2 : -1; };
+            let f3 = () => { seq = -1; };
+            let f1 = () => {
+                seq = (seq === 0) ? 1 : -1;
+                e.removeListener("bar", f2);
+                e.on("bar", f3);
+            };
+            e.on("bar", f1);
+            e.on("bar", f2);
+            assert.isTrue(e.emit("bar"));
+            assert.strictEqual(seq, 2);
+        });
+        it("is not affected by removing event in callback", () => {
+            let e = new EventEmitter();
+            let seq = 0;
+            e.on("bar", () => {
+                seq = (seq === 0) ? 1 : -1;
+                e.removeAllListeners("bar");
+            });
+            e.on("bar", () => {
+                seq = (seq === 1) ? 2 : -1;
+            });
+            assert.isTrue(e.emit("bar"));
+            assert.strictEqual(seq, 2);
+        });
+        it("is not affected by removing all events in callback", () => {
+            let e = new EventEmitter();
+            let seq = 0;
+            e.on("bar", () => {
+                seq = (seq === 0) ? 1 : -1;
+                e.removeAllListeners();
+            });
+            e.on("bar", () => {
+                seq = (seq === 1) ? 2 : -1;
+            });
+            assert.isTrue(e.emit("bar"));
+            assert.strictEqual(seq, 2);
+        });
+    });
 });
