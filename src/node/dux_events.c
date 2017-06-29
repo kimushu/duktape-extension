@@ -732,7 +732,7 @@ DUK_LOCAL duk_ret_t events_defaultMaxListeners_setter(duk_context *ctx)
 }
 
 /**
- * List of methods for ProceEventEmitterss object
+ * List of methods for EventEmitter object
  */
 DUK_LOCAL duk_function_list_entry events_proto_funcs[] = {
     { "addListener", events_proto_on, 2 },

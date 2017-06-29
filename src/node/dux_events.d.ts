@@ -1,4 +1,4 @@
-declare module "events" {
+declare namespace Dux {
     class EventEmitter {
         /**
          * Circular reference to EventEmitter
@@ -98,6 +98,7 @@ declare module "events" {
 
     module EventEmitter {
     }
-
-    export = EventEmitter;
+}
+declare module "events" {
+    export = Dux.EventEmitter;
 }
