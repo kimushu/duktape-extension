@@ -15,7 +15,7 @@ DUK_LOCAL duk_ret_t modules_require(duk_context *ctx)
 	/* [ name require obj ] */
 	if (!duk_get_prop_string(ctx, 2, name)) {
 		/* no module */
-		duk_error(ctx, DUK_ERR_ERROR, "Cannot find module '%s'", name);
+		(void)duk_error(ctx, DUK_ERR_ERROR, "Cannot find module '%s'", name);
 	}
 	/* [ name require obj module|entry ] */
 	entry = duk_get_pointer(ctx, 3);

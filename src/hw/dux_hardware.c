@@ -20,7 +20,7 @@ DUK_LOCAL duk_errcode_t hardware_entry(duk_context *ctx)
  */
 DUK_INTERNAL duk_errcode_t dux_hardware_init(duk_context *ctx)
 {
-    dux_modules_register(ctx, "hardware", hardware_entry);
+    return dux_modules_register(ctx, "hardware", hardware_entry);
 }
 
 /*

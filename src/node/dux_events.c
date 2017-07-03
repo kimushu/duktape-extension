@@ -8,26 +8,6 @@ DUK_LOCAL const char DUX_KEY_LISTENER[] = "listener";
 DUK_LOCAL const char DUX_IPK_DEFMAXLISTENERS[] = "evDefMax";
 
 /**
- * Get listener function
- */
-DUK_LOCAL void events_get_function(duk_context *ctx, duk_idx_t idx, duk_bool_t *is_once)
-{
-    duk_bool_t once = 0;
-    /* [ ... listener ... ] */
-    if (!duk_is_callable(ctx, idx)) {
-        once = 1;
-        idx = duk_normalize_index(ctx, idx);
-        duk_get_prop_string(ctx, idx, DUX_KEY_LISTENER);
-        /* [ ... func_wrapper ... func ] */
-        duk_replace(ctx, idx);
-    }
-    /* [ ... func ... ] */
-    if (is_once) {
-        *is_once = once;
-    }
-}
-
-/**
  * Update events count
  */
 DUK_LOCAL void events_update_count(duk_context *ctx, duk_idx_t this_idx, duk_int_t diff)

@@ -232,7 +232,6 @@ DUK_LOCAL duk_ret_t timer_clear_exec(duk_context *ctx, duk_idx_t arr_idx, duk_id
 DUK_LOCAL duk_ret_t timer_clear(duk_context *ctx, duk_uint_t flags)
 {
 	duk_uarridx_t id;
-	duk_uarridx_t free_id;
 	dux_timer_desc *desc;
 
 	/* [ timeout ] */
@@ -327,7 +326,7 @@ DUK_INTERNAL duk_int_t dux_timer_tick(duk_context *ctx)
 	duk_int_t result = DUX_TICK_RET_JOBLESS;
 	dux_timer_desc *desc;
 	duk_idx_t arr_idx;
-	duk_uarridx_t id, free_id;
+	duk_uarridx_t id;
 	duk_size_t max_id;
 
 	timer_push_array(ctx);

@@ -54,8 +54,6 @@ DUK_LOCAL dux_paraio_data *paraio_get_data(duk_context *ctx, duk_idx_t this_idx)
  */
 DUK_LOCAL dux_paraio_data *paraio_push_this_and_get_data(duk_context *ctx)
 {
-	dux_paraio_data *data;
-
 	/* [ ... ] */
 	duk_push_this(ctx);
 	/* [ ... this ] */
