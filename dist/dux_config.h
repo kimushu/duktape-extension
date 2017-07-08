@@ -1,0 +1,4 @@
+#ifndef DUX_CONFIG_H_INCLUDED
+#define DUX_CONFIG_H_INCLUDED
+
+#endif  /* !DUX_CONFIG_H_INCLUDED */

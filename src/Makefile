@@ -48,7 +48,7 @@ test: $(TARGETS)
 $(DESTDIR)/dux.c: $(PREAMBLE) $(SOURCES) $(MAKEFILE_LIST)
 	mkdir -p $(dir $@)
 	$(COMBINE) --line --header $< \
-		-e duktape.h -o $@ --dep $(DEP) $(SOURCES) || (rm -f $@; false)
+		-e duktape.h -e dux_config.h -o $@ --dep $(DEP) $(SOURCES) || (rm -f $@; false)
 
 -include $(DEP)
 

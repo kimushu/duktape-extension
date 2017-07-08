@@ -21,6 +21,7 @@ extern "C" {
  * Sub modules
  */
 
+#include "dux_config.h"
 #include "dux_basis.h"
 #include "dux_modules.h"
 #include "dux_promise.h"
