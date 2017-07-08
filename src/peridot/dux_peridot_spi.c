@@ -291,7 +291,13 @@ DUK_LOCAL duk_ret_t spi_connect_body(duk_context *ctx, spi_pins_t *pins)
 	duk_set_top(ctx, 1);
 	/* [ arr ] */
 
-	dux_push_spicon_constructor(ctx);
+	duk_get_global_string(ctx, "require");
+	duk_push_string(ctx, "hardware");
+	duk_call(ctx, 1);
+	/* [ arr hardware ] */
+	duk_get_prop_string(ctx, 1, "SPIConnection");
+	/* [ arr hardware constructor ] */
+	duk_remove(ctx, 1);
 	/* [ arr constructor ] */
 	duk_push_fixed_buffer(ctx, sizeof(*data));
 	/* [ arr constructor buf ] */

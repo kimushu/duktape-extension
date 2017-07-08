@@ -37,7 +37,6 @@ DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
 	duk_call(ctx, 1);
 	/* [ key hardware ] */
 	if (!duk_get_prop_string(ctx, 1, "ParallelIO")) {
-	{
 		/* [ key hardware undefined ] */
 		return 0; /* return undefined */
 	}
