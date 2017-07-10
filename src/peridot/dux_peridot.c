@@ -1,17 +1,3 @@
-/*
- * ECMA objects:
- *   global.Peridot = {
- *     startLed: <ParallelIO>
- *   };
- *
- * Internal data structure:
- *   heap_stash[DUX_IPK_PERIDOT] = {
- *   };
- *
- * Native functions:
- *   duk_bool_t dux_push_peridot_stash(duk_context *ctx);
- *   duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index, const char *key);
- */
 #if defined(DUX_USE_BOARD_PERIDOT)
 #include "../dux_internal.h"
 #include <system.h>

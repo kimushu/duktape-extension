@@ -23,7 +23,6 @@ DUK_INTERNAL_DECL duk_errcode_t dux_peridot_init(duk_context *ctx);
 #define DUX_INIT_PERIDOT    dux_peridot_init,
 #define DUX_TICK_PERIDOT
 
-DUK_INTERNAL_DECL duk_bool_t dux_push_peridot_stash(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index);
 DUK_INTERNAL_DECL duk_int_t dux_get_peridot_pin_by_key(duk_context *ctx, duk_idx_t index, ...);
 
