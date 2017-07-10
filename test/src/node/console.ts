@@ -5,6 +5,14 @@ describe("console", () => {
 		assert.exists(console);
 	});
 
+	it("equals to require(\"console\")", () => {
+		assert.strictEqual(console, require("console"));
+	});
+
+	it("has reference to Console", () => {
+		assert.isFunction(console.Console);
+	});
+
 	describe("log", () => {
 		it("is a function", () => {
 			assert.isFunction(console.log);

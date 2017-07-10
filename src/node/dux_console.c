@@ -25,13 +25,15 @@
 DUK_LOCAL const char DUX_IPK_CONSOLE[]      = DUX_IPK("Console");
 DUK_LOCAL const char DUX_IPK_CONSOLE_OUT[]  = DUX_IPK("coOut");
 DUK_LOCAL const char DUX_IPK_CONSOLE_ERR[]  = DUX_IPK("coErr");
+DUK_LOCAL const char DUX_CONSOLE_NEWLINE[]  = "\n";
 
 /*
  * Common implementation of console functions
  */
-DUK_LOCAL duk_ret_t console_print(duk_context *ctx, FILE* dest, const char *format)
+DUK_LOCAL duk_ret_t console_print(duk_context *ctx, const char *ipk)
 {
 	duk_ret_t result;
+	FILE *fp;
 
 	/* [ ... ] */
 	result = dux_util_format(ctx);
@@ -41,7 +43,32 @@ DUK_LOCAL duk_ret_t console_print(duk_context *ctx, FILE* dest, const char *form
 	}
 
 	/* [ ... string ] */
-	fprintf(dest, format, duk_safe_to_string(ctx, -1));
+	duk_swap_top(ctx, 0);
+	duk_set_top(ctx, 1);
+	/* [ string ] */
+	duk_push_this(ctx);
+	/* [ string this ] */
+	duk_get_prop_string(ctx, 1, ipk);
+	/* [ string this pointer|stream ] */
+
+	fp = (FILE *)duk_get_pointer(ctx, 2);
+	if (fp) {
+		/* [ string this pointer ] */
+		fputs(duk_safe_to_string(ctx, 0), fp);
+		fputs(DUX_CONSOLE_NEWLINE, fp);
+	} else {
+		/* [ string this stream ] */
+		duk_push_string(ctx, "write");
+		duk_dup(ctx, 0);
+		/* [ string this stream "write":3 string:4 ] */
+		duk_call_prop(ctx, 2, 1);
+		duk_pop(ctx);
+		/* [ string this stream ] */
+		duk_push_string(ctx, "write");
+		duk_push_string(ctx, DUX_CONSOLE_NEWLINE);
+		/* [ string this stream "write":3 string:4 ] */
+		duk_call_prop(ctx, 2, 1);
+	}
 
 	return 0; /* return undefined */
 }
@@ -51,10 +78,36 @@ DUK_LOCAL duk_ret_t console_print(duk_context *ctx, FILE* dest, const char *form
  */
 DUK_LOCAL duk_ret_t console_constructor(duk_context *ctx)
 {
+	/* [ stdout stderr ] */
 	if (!duk_is_constructor_call(ctx))
 	{
 		return DUK_RET_TYPE_ERROR;
 	}
+
+	duk_push_this(ctx);
+	duk_insert(ctx, 0);
+	/* [ this stdout stderr ] */
+
+	// Store stderr
+	if (duk_is_null_or_undefined(ctx, 2)) {
+		duk_pop(ctx);
+		duk_dup(ctx, 1);
+	}
+
+	if (duk_is_pointer(ctx, 2) || duk_is_object(ctx, 2)) {
+		duk_put_prop_string(ctx, 0, DUX_IPK_CONSOLE_ERR);
+	} else {
+		return DUK_RET_TYPE_ERROR;
+	}
+	/* [ this stdout ] */
+
+	// Store stdout
+	if (duk_is_pointer(ctx, 1) || duk_is_object(ctx, 1)) {
+		duk_put_prop_string(ctx, 0, DUX_IPK_CONSOLE_OUT);
+	} else {
+		return DUK_RET_TYPE_ERROR;
+	}
+	/* [ this ] */
 
 	return 0; /* return this */
 }
@@ -76,35 +129,19 @@ DUK_LOCAL duk_ret_t console_proto_assert(duk_context *ctx)
 }
 
 /*
- * Entry of Console.prototype.error()
+ * Entry of Console.prototype.error() / Console.prototype.warn()
  */
 DUK_LOCAL duk_ret_t console_proto_error(duk_context *ctx)
 {
-	return console_print(ctx, stderr, "(error) %s\n");
+	return console_print(ctx, DUX_IPK_CONSOLE_ERR);
 }
 
 /*
- * Entry of Console.prototype.info()
- */
-DUK_LOCAL duk_ret_t console_proto_info(duk_context *ctx)
-{
-	return console_print(ctx, stdout, "(info) %s\n");
-}
-
-/*
- * Entry of Console.prototype.log()
+ * Entry of Console.prototype.log() / Console.prototype.info()
  */
 DUK_LOCAL duk_ret_t console_proto_log(duk_context *ctx)
 {
-	return console_print(ctx, stdout, "(log) %s\n");
-}
-
-/*
- * Entry of Console.prototype.warn()
- */
-DUK_LOCAL duk_ret_t console_proto_warn(duk_context *ctx)
-{
-	return console_print(ctx, stderr, "(warn) %s\n");
+	return console_print(ctx, DUX_IPK_CONSOLE_OUT);
 }
 
 /*
@@ -113,31 +150,20 @@ DUK_LOCAL duk_ret_t console_proto_warn(duk_context *ctx)
 DUK_LOCAL duk_ret_t global_console_getter(duk_context *ctx)
 {
 	/* [  ] */
-	duk_push_this(ctx); /* this == global */
-	duk_push_heap_stash(ctx);
-	/* [ global stash ] */
-	duk_get_prop_string(ctx, 1, DUX_IPK_CONSOLE);
-	/* [ global stash constructor ] */
-	duk_dup(ctx, 2);
-	/* [ global stash constructor constructor ] */
-	if (duk_pnew(ctx, 0) != DUK_EXEC_SUCCESS)
-	{
-		(void)duk_throw(ctx);
-		/* unreachable */
-		return 0;
-	}
-	/* [ global stash constructor obj ] */
-	duk_swap(ctx, 2, 3);
-	/* [ global stash obj constructor ] */
-	duk_put_prop_string(ctx, 2, "Console");
-	/* [ global stash obj ] */
+	duk_get_global_string(ctx, "require");
 	duk_push_string(ctx, "console");
-	/* [ global stash obj "console" ] */
-	duk_dup(ctx, 2);
-	/* [ global stash obj "console" obj ] */
-	duk_def_prop(ctx, 0, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE);
-	/* [ global stash obj ] */
-	return 1; /* return obj */
+	duk_call(ctx, 1);
+	/* [ console ] */
+	duk_push_global_object(ctx);
+	/* [ console global ] */
+	duk_dup(ctx, 0);
+	duk_push_string(ctx, "console");
+	/* [ console global "console" console ] */
+	duk_def_prop(ctx, 1, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE);
+	/* [ console global ] */
+	duk_pop(ctx);
+	/* [ console ] */
+	return 1;
 }
 
 /*
@@ -146,37 +172,51 @@ DUK_LOCAL duk_ret_t global_console_getter(duk_context *ctx)
 DUK_LOCAL duk_function_list_entry console_proto_funcs[] = {
 	{ "assert", console_proto_assert,   DUK_VARARGS },
 	{ "error",  console_proto_error,    DUK_VARARGS },
-	{ "info",   console_proto_info,     DUK_VARARGS },
+	{ "info",   console_proto_log,      DUK_VARARGS },
 	{ "log",    console_proto_log,      DUK_VARARGS },
-	{ "warn",   console_proto_warn,     DUK_VARARGS },
+	{ "warn",   console_proto_error,    DUK_VARARGS },
 	{ NULL, NULL, 0 }
 };
 
 /*
- * Initialize Console module
+ * Entry of Console module
  */
-DUK_INTERNAL duk_errcode_t dux_console_init(duk_context *ctx)
+DUK_INTERNAL duk_errcode_t console_entry(duk_context *ctx)
 {
-	/* [ ... ] */
-	duk_push_heap_stash(ctx);
-	/* [ ... stash ] */
+    /* [ require module exports ] */
 	dux_push_named_c_constructor(ctx, "Console",
 			console_constructor, 2,
 			NULL, console_proto_funcs,
 			NULL, NULL);
-	/* [ ... stash constructor ] */
-	duk_put_prop_string(ctx, -2, DUX_IPK_CONSOLE);
-	/* [ ... stash ] */
+	/* [ require module exports constructor:3 ] */
+	duk_dup(ctx, 3);
+	/* [ require module exports constructor:3 constructor:4 ] */
+	duk_push_pointer(ctx, stdout);
+	duk_push_pointer(ctx, stderr);
+	duk_new(ctx, 2);
+	/* [ require module exports constructor:3 console:4 ] */
+	duk_swap(ctx, 3, 4);
+	/* [ require module exports console:3 constructor:4 ] */
+	duk_put_prop_string(ctx, 3, "Console");
+	/* [ require module exports console:3 ] */
+	duk_put_prop_string(ctx, 1, "exports");
+	/* [ require module exports ] */
+	return DUK_ERR_NONE;
+}
+
+DUK_INTERNAL duk_errcode_t dux_console_init(duk_context *ctx)
+{
+	/* [ ... ] */
 	duk_push_global_object(ctx);
-	/* [ ... stash global ] */
+	/* [ ... global ] */
 	duk_push_string(ctx, "console");
 	duk_push_c_function(ctx, global_console_getter, 0);
-	/* [ ... stash global "console" getter ] */
+	/* [ ... global "console" getter ] */
 	duk_def_prop(ctx, -3, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_GETTER);
-	/* [ ... stash global ] */
-	duk_pop_2(ctx);
+	/* [ ... global ] */
+	duk_pop(ctx);
 	/* [ ... ] */
-	return DUK_ERR_NONE;
+	return dux_modules_register(ctx, "console", console_entry);
 }
 
 #endif  /* !DUX_OPT_NO_NODEJS_MODULES && !DUX_OPT_NO_CONSOLE */
