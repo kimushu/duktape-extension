@@ -3,6 +3,8 @@ declare namespace Dux {
         readonly prototype: I2CConnection;
     }
 
+    type I2CWriteData = ArrayBuffer | Buffer | Array<number> | string;
+
     interface I2CConnection {
         /**
          * Read bytes from I2C device
@@ -22,14 +24,14 @@ declare namespace Dux {
          * Write bytes to I2C device
          * @param writeData The buffer stores octets to write
          */
-        write(writeData: ArrayBuffer|Buffer|Uint8Array|string): Promise<void>;
+        write(writeData: I2CWriteData): Promise<void>;
 
         /**
          * Write bytes to I2C device
          * @param writeData The buffer stores octets to write
          * @param callback Callback
          */
-        write(writeData: ArrayBuffer|Buffer|Uint8Array|string, callback: (error: Error) => void): void;
+        write(writeData: I2CWriteData, callback: (error: Error) => void): void;
 
         /**
          * Write bytes, and then read bytes from I2C device.
@@ -37,7 +39,7 @@ declare namespace Dux {
          * @param writeData The buffer stores octets to write
          * @param readLen Number of bytes to read
          */
-        transfer(writeData: ArrayBuffer|Buffer|Uint8Array|string, readLen: number): Promise<Buffer>;
+        transfer(writeData: I2CWriteData, readLen: number): Promise<Buffer>;
 
         /**
          * Write bytes, and then read bytes from I2C device.
@@ -46,7 +48,7 @@ declare namespace Dux {
          * @param readLen Number of bytes to read
          * @param callback Callback
          */
-        transfer(writeData: ArrayBuffer|Buffer|Uint8Array|string, readLen: number, callback: (error: Error, readData: Buffer) => void): void;
+        transfer(writeData: I2CWriteData, readLen: number, callback: (error: Error, readData: Buffer) => void): void;
 
         /** Bitrate */
         bitrate: number;

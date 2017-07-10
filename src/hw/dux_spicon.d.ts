@@ -3,6 +3,8 @@ declare namespace Dux {
         readonly prototype: SPIConnection;
     }
 
+    type SPIWriteData = ArrayBuffer | Buffer | Array<number> | string;
+
     interface SPIConnection {
         /**
          * Read bytes from SPI device
@@ -23,14 +25,14 @@ declare namespace Dux {
          * Write bytes to SPI device
          * @param writeData The buffer stores octets to write
          */
-        write(writeData: ArrayBuffer|Buffer|Uint8Array|string): Promise<void>;
+        write(writeData: SPIWriteData): Promise<void>;
 
         /**
          * Write bytes to SPI device
          * @param writeData The buffer stores octets to write
          * @param callback Callback
          */
-        write(writeData: ArrayBuffer|Buffer|Uint8Array|string, callback: (error: Error) => void): void;
+        write(writeData: SPIWriteData, callback: (error: Error) => void): void;
 
         /**
          * Write bytes, and then read bytes from SPI device
@@ -38,7 +40,7 @@ declare namespace Dux {
          * @param readLen Number of bytes to read
          * @param filler Written value to write in read phase (Optional. Default 0xff)
          */
-        transfer(writeData: ArrayBuffer|Buffer|Uint8Array|string, readLen: number, filler?: number): Promise<Buffer>;
+        transfer(writeData: SPIWriteData, readLen: number, filler?: number): Promise<Buffer>;
 
         /**
          * Write bytes, and then read bytes from SPI device
@@ -47,7 +49,7 @@ declare namespace Dux {
          * @param callback Callback
          * @param filler Written value to write in read phase (Optional. Default 0xff)
          */
-        transfer(writeData: ArrayBuffer|Buffer|Uint8Array|string, readLen: number, callback: (error: Error, readData: Buffer) => void, filler?: number): void;
+        transfer(writeData: SPIWriteData, readLen: number, callback: (error: Error, readData: Buffer) => void, filler?: number): void;
 
         /**
          * Write and read bytes simultaneously. The number of bytes to read is the same as the number of bytes to write.
