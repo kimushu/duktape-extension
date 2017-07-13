@@ -182,10 +182,10 @@ DUK_LOCAL duk_ret_t spicon_completer(duk_context *ctx)
 		{
 			duk_push_buffer_object(ctx, 4,
 					0, duk_get_length(ctx, 4),
-					DUK_BUFOBJ_ARRAYBUFFER);
-			/* [ job int func true buf:4 bufobj(ArrayBuffer):5 ] */
+					DUK_BUFOBJ_NODEJS_BUFFER);
+			/* [ job int func true buf:4 bufobj(Buffer):5 ] */
 			duk_remove(ctx, 4);
-			/* [ job int func true bufobj(ArrayBuffer):4 ] */
+			/* [ job int func true bufobj(Buffer):4 ] */
 			nargs = 2;
 		}
 	}
