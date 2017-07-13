@@ -212,4 +212,25 @@ DUK_INLINE duk_idx_t dux_push_inherited_named_c_constructor(
 	return result;
 }
 
+/*
+ * Push function of constructor of super class
+ */
+DUK_LOCAL
+DUK_INLINE void dux_push_super_constructor(duk_context *ctx)
+{
+	/* [ ... ] */
+	duk_push_current_function(ctx);
+	/* [ ... constructor ] */
+	duk_get_prop_string(ctx, -1, "prototype");
+	/* [ ... constructor prototype ] */
+	duk_get_prototype(ctx, -1);
+	/* [ ... constructor prototype super_prototype ] */
+	duk_get_prop_string(ctx, -1, "constructor");
+	/* [ ... constructor prototype super_prototype super ] */
+	duk_replace(ctx, -4);
+	/* [ ... super prototype super_prototype ] */
+	duk_pop_2(ctx);
+	/* [ ... super ] */
+}
+
 #endif  /* !DUX_BASIS_H_INCLUDED */
