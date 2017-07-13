@@ -112,42 +112,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_transfer_body(duk_context *ctx,
 
 	if (write)
 	{
-		if (duk_is_array(ctx, 0))
-		{
-			// Array => Convert to fixed Buffer
-			duk_size_t size;
-			duk_uarridx_t aidx;
-			unsigned char *buffer;
-
-			size = duk_get_length(ctx, 0);
-			duk_push_fixed_buffer(ctx, size);
-			/* [ arr buf/undefined callback buf ] */
-			buffer = (unsigned char *)duk_get_buffer(ctx, 3, NULL);
-
-			for (aidx = 0; aidx < size; ++aidx)
-			{
-				duk_uint_t byte;
-				duk_get_prop_index(ctx, 0, aidx);
-				byte = duk_require_uint(ctx, -1);
-				duk_pop(ctx);
-				if (byte > 0xff)
-				{
-					return DUK_RET_TYPE_ERROR;
-				}
-				*buffer++ = (unsigned char)byte;
-			}
-
-			duk_replace(ctx, 0);
-			/* [ buf buf/undefined callback ] */
-		}
-		else if (duk_is_string(ctx, 0) || duk_is_buffer(ctx, 0))
-		{
-			// string, Duktape.Buffer, Node.js Buffer, ArrayBuffer,
-			// DataView, TypedArray
-			// => No conversion needed
-			/* [ buf/string buf/undefined callback ] */
-		}
-		else
+		if (!dux_to_byte_buffer(ctx, 0, NULL))
 		{
 			return DUK_RET_TYPE_ERROR;
 		}
@@ -158,13 +123,13 @@ DUK_LOCAL duk_ret_t i2ccon_proto_transfer_body(duk_context *ctx,
 	}
 
 	dux_promise_get_cb_with_bool(ctx, 2);
-	/* [ buf/string/undefined buf/undefined func promise/undefined ] */
+	/* [ buf/undefined buf/undefined func promise/undefined ] */
 	duk_insert(ctx, 0);
-	/* [ promise/undefined buf/string/undefined buf/undefined func ] */
+	/* [ promise/undefined buf/undefined buf/undefined func ] */
 
 	duk_push_this(ctx);
 	duk_get_prop_string(ctx, 4, DUX_IPK_I2CCON_AUX);
-	/* [ promise/undefined buf/string/undefined buf/undefined func this obj ] */
+	/* [ promise/undefined buf/undefined buf/undefined func this obj ] */
 
 	(*data->transfer)(ctx, data);
 

@@ -170,7 +170,10 @@ DUK_LOCAL duk_ret_t spicon_proto_exchange(duk_context *ctx)
 	duk_size_t len;
 
 	/* [ obj func/undefined ] */
-	dux_to_byte_buffer(ctx, 0, &len);
+	if (!dux_to_byte_buffer(ctx, 0, &len))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
 	/* [ buf func/undefined ] */
 
 	return spicon_proto_transfer_body(ctx, 0, len, 0);
@@ -210,7 +213,10 @@ DUK_LOCAL duk_ret_t spicon_proto_transfer(duk_context *ctx)
 	read_len = duk_require_uint(ctx, 1);
 	duk_remove(ctx, 1);
 	/* [ obj func/undefined ] */
-	dux_to_byte_buffer(ctx, 0, &write_len);
+	if (!dux_to_byte_buffer(ctx, 0, &write_len))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
 	/* [ buf func/undefined ] */
 
 	return spicon_proto_transfer_body(ctx, write_len, read_len, filler);
@@ -222,7 +228,10 @@ DUK_LOCAL duk_ret_t spicon_proto_transfer(duk_context *ctx)
 DUK_LOCAL duk_ret_t spicon_proto_write(duk_context *ctx)
 {
 	/* [ obj func/undefined ] */
-	dux_to_byte_buffer(ctx, 0, NULL);
+	if (!dux_to_byte_buffer(ctx, 0, NULL))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
 	/* [ buf func/undefined ] */
 
 	return spicon_proto_transfer_body(ctx, 0, 0, 0);
