@@ -175,10 +175,6 @@ DUK_LOCAL duk_ret_t paraio_constructor(duk_context *ctx)
 	duk_idx_t index;
 	dux_paraio_data *data;
 
-	if (!duk_is_constructor_call(ctx)) {
-		return DUK_RET_TYPE_ERROR;
-	}
-
 	if (duk_is_pointer(ctx, 3)) {
 		/* [ int int uint ptr ptr ] for new array */
 		result = paraio_construct_new(

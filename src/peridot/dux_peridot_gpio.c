@@ -138,6 +138,11 @@ DUK_LOCAL duk_ret_t gpio_constructor(duk_context *ctx)
 	duk_uint_t begin;
 	duk_uint_t width;
 
+	if (!duk_is_constructor_call(ctx))
+	{
+		return DUK_RET_TYPE_ERROR;
+	}
+
 	/* [ uint uint/undefined ] */
 	begin = duk_require_uint(ctx, 0);
 
@@ -158,7 +163,8 @@ DUK_LOCAL duk_ret_t gpio_constructor(duk_context *ctx)
 	}
 
 	duk_set_top(ctx, 0);
-	duk_get_global_string(ctx, "ParallelIO");
+	/* [  ] */
+	dux_push_super_constructor(ctx);
 	/* [ super ] */
 	duk_push_this(ctx);
 	/* [ super this ] */
