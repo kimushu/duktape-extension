@@ -21,8 +21,8 @@
  *    PeridotSPI.[[DUX_IPK_PERIDOT_SPI_POOLS]] = new Array(
  *      thrpool1, ..., thrpoolN
  *    );
- *    thrpoolX.[[DUX_IPK_PERIDOT_SPI_DRIVER]] = <pointer> driver;
- *    (new PeridotSPI).[[DUX_IPK_PERIDOT_SPI_DRIVER]] = <pointer> driver;
+ *    thrpoolX.[[DUX_IPK_PERIDOT_SPI_DRIVER]] = <pointer> map;
+ *    (new PeridotSPI).[[DUX_IPK_PERIDOT_SPI_DRIVER]] = <pointer> map;
  *    (new PeridotSPI).[[DUX_IPK_PERIDOT_SPI_PINS]] = <uint> pins;
  */
 #if defined(DUX_USE_BOARD_PERIDOT)
@@ -78,7 +78,7 @@ typedef struct dux_spicon_data_peridot
 {
 	dux_spicon_data common;
 	spi_pins_t pins;
-	peridot_spi_master_state *driver;
+	peridot_spi_master_pfc_map *map;
 	alt_u32 clkdiv;
 }
 dux_spicon_data_peridot;
@@ -128,7 +128,7 @@ DUK_LOCAL duk_int_t spicon_worker(const dux_thrpool_block *blocks, duk_size_t nu
 	data = (dux_spicon_data_peridot *)blocks[SPI_BLKIDX_DATA].pointer;
 
 	result = peridot_spi_master_configure_pins(
-			data->driver,
+			data->map,
 			data->pins.sclk,
 			data->pins.mosi,
 			data->pins.miso,
@@ -139,7 +139,7 @@ DUK_LOCAL duk_int_t spicon_worker(const dux_thrpool_block *blocks, duk_size_t nu
 	}
 
 	result = peridot_spi_master_transfer(
-			data->driver,
+			data->map->sp,
 			data->pins.ss_n,
 			blocks[SPI_BLKIDX_CLKDIV].uint,
 			blocks[SPI_BLKIDX_WRITEDATA].length,
@@ -254,7 +254,7 @@ DUK_LOCAL duk_ret_t spicon_update_bitrate(duk_context *ctx, dux_spicon_data_peri
 	duk_ret_t result;
 	alt_u32 clkdiv;
 
-	result = peridot_spi_master_get_clkdiv(data->driver,
+	result = peridot_spi_master_get_clkdiv(data->map->sp,
 				data->common.bitrate, &clkdiv);
 	if (result != 0)
 	{
@@ -272,7 +272,7 @@ DUK_LOCAL duk_ret_t spi_connect_body(duk_context *ctx, spi_pins_t *pins)
 {
 	dux_spicon_data_peridot *data;
 	duk_uint_t bitrate;
-	peridot_spi_master_state *driver;
+	peridot_spi_master_pfc_map *map;
 
 	/* [ any uint(bitrate)/undefined this ] */
 	if (duk_is_null_or_undefined(ctx, 1))
@@ -309,7 +309,7 @@ DUK_LOCAL duk_ret_t spi_connect_body(duk_context *ctx, spi_pins_t *pins)
 		(duk_ret_t (*)(duk_context *, dux_spicon_data *))spicon_update_bitrate;
 	data->common.bitrate = bitrate;
 	data->pins.uint = pins->uint;
-	data->driver = NULL;
+	data->map = NULL;
 
 	duk_enum(ctx, 0, DUK_ENUM_ARRAY_INDICES_ONLY);
 	/* [ arr constructor buf enum ] */
@@ -318,15 +318,15 @@ DUK_LOCAL duk_ret_t spi_connect_body(duk_context *ctx, spi_pins_t *pins)
 		/* [ arr constructor buf enum key:4 thrpool:5 ] */
 		duk_get_prop_string(ctx, 5, DUX_IPK_PERIDOT_SPI_DRIVER);
 		/* [ arr constructor buf enum key:4 thrpool:5 pointer:6 ] */
-		driver = (peridot_spi_master_state *)duk_get_pointer(ctx, 6);
+		map = (peridot_spi_master_pfc_map *)duk_get_pointer(ctx, 6);
 		duk_pop(ctx);
 		/* [ arr constructor buf enum key:4 thrpool:5 ] */
 
-		if ((driver) &&
-			peridot_spi_master_configure_pins(driver,
+		if ((map) &&
+			peridot_spi_master_configure_pins(map,
 					pins->sclk, pins->mosi, pins->miso, 1) == 0)
 		{
-			data->driver = driver;
+			data->map = map;
 			duk_swap(ctx, 3, 5);
 			/* [ arr constructor buf thrpool key:4 enum:5 ] */
 			duk_set_top(ctx, 4);
@@ -481,7 +481,7 @@ DUK_LOCAL const dux_property_list_entry spi_proto_props[] = {
  */
 DUK_INTERNAL duk_errcode_t dux_peridot_spi_init(duk_context *ctx)
 {
-	extern peridot_spi_master_state *const peridot_spi_drivers[];
+	extern peridot_spi_master_pfc_map *const peridot_spi_drivers[];
 	duk_idx_t index;
 
 	/* [ ... obj ] */
@@ -493,14 +493,14 @@ DUK_INTERNAL duk_errcode_t dux_peridot_spi_init(duk_context *ctx)
 	/* [ ... obj constructor arr ] */
 	for (index = 0;; ++index)
 	{
-		peridot_spi_master_state *driver;
-		driver = peridot_spi_drivers[index];
-		if (!driver)
+		peridot_spi_master_pfc_map *map;
+		map = peridot_spi_drivers[index];
+		if (!map)
 		{
 			break;
 		}
 		dux_push_thrpool(ctx, 1, 1);
-		duk_push_pointer(ctx, driver);
+		duk_push_pointer(ctx, map);
 		/* [ ... obj constructor arr thrpool pointer ] */
 		duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT_SPI_DRIVER);
 		/* [ ... obj constructor arr thrpool ] */
@@ -513,7 +513,7 @@ DUK_INTERNAL duk_errcode_t dux_peridot_spi_init(duk_context *ctx)
 
 	if (index == 0)
 	{
-		// No driver
+		// No map
 		duk_pop(ctx);
 		/* [ ... obj ] */
 		return DUK_ERR_ERROR;
