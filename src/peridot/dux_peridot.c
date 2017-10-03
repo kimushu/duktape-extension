@@ -1,7 +1,6 @@
 #if defined(DUX_USE_BOARD_PERIDOT)
 #include "../dux_internal.h"
 #include <system.h>
-#include <peridot_swi_regs.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
@@ -17,6 +16,14 @@ DUK_LOCAL const char DUX_IPK_PERIDOT[] = DUX_IPK("Peridot");
  */
 DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
 {
+	int width, offset;
+	void *base;
+
+	base = peridot_query_start_led(&width, &offset);
+	if (!base) {
+		return 0; /* return undefined */
+	}
+
 	/* [ key ] */
 	duk_get_global_string(ctx, "require");
 	duk_push_string(ctx, "hardware");
@@ -28,11 +35,11 @@ DUK_LOCAL duk_ret_t peridot_startLed_getter(duk_context *ctx)
 	}
 	duk_remove(ctx, 1);
 	/* [ key constructor ] */
-	duk_push_uint(ctx, PERIDOT_SWI_RSTSTS_LED_OFST);            /* offset */
-	duk_push_uint(ctx, PERIDOT_SWI_RSTSTS_LED_WIDTH);           /* width */
+	duk_push_uint(ctx, offset);                                 /* offset */
+	duk_push_uint(ctx, width);                                  /* width */
 	duk_push_uint(ctx, 0);                                      /* polarity */
 	duk_push_pointer(ctx, (void *)&dux_paraio_manip_rw);        /* manip */
-	duk_push_pointer(ctx, IOADDR_PERIDOT_SWI_RSTSTS(SWI_BASE)); /* pointer */
+	duk_push_pointer(ctx, base);                                /* pointer */
 	duk_new(ctx, 5);
 	/* [ key obj ] */
 	duk_push_this(ctx);

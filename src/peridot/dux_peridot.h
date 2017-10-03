@@ -26,6 +26,11 @@ DUK_INTERNAL_DECL duk_errcode_t dux_peridot_init(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_get_peridot_pin(duk_context *ctx, duk_idx_t index);
 DUK_INTERNAL_DECL duk_int_t dux_get_peridot_pin_by_key(duk_context *ctx, duk_idx_t index, ...);
 
+/*
+ * External functions
+ */
+extern void *peridot_query_start_led(int *width, int *offset);
+
 #else   /* DUX_USE_BOARD_PERIDOT */
 
 #define DUX_INIT_PERIDOT
