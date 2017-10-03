@@ -1,13 +1,17 @@
 {
   "name": "duktape-extension",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Extension modules for Duktape",
   "main": "index.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "make -C src",
+    "pretest": "npm run compile",
+    "test": "make -C test",
+    "prerelease": "npm test",
+    "release": "node tools/release.js"
   },
   "repository": {
     "type": "git",
@@ -20,6 +24,8 @@
   },
   "homepage": "https://github.com/kimushu/duktape-extension#readme",
   "devDependencies": {
+    "tar": "^4.0.1",
     "typescript": "^2.3.4"
-  }
+  },
+  "private": true
 }

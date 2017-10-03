@@ -1,5 +1,5 @@
 #include "duktape.h"
-#include "dux.h"
+#include "dukext.h"
 #include "espresso.h"
 #include <stdio.h>
 

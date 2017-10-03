@@ -1,1 +1,1 @@
-// Type definition for duktape-extension(dux) v1.0.x
+// Type definition for duktape-extension (dux) v0.0.x
