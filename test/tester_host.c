@@ -69,8 +69,18 @@ int main(int argc, char *argv[])
 
 	fprintf(stderr, "INFO: event loop starting\n");
 	for (;;) {
+		int stack_before, stack_after, tick_result;
 		test_done = espresso_tick(ctx, NULL, NULL, &failed);
-		if (!dux_tick(ctx)) {
+		stack_before = duk_get_top(ctx);
+		tick_result = dux_tick(ctx);
+		stack_after = duk_get_top(ctx);
+		if (stack_before != stack_after) {
+			fprintf(stderr, "ERROR: stack length changed in tick handler (%d -> %d)\n",
+				stack_before, stack_after
+			);
+			break;
+		}
+		if (!tick_result) {
 			if (!espresso_exit_handler(ctx)) {
 				break;
 			}
