@@ -340,9 +340,11 @@ DUK_INTERNAL duk_int_t dux_timer_tick(duk_context *ctx)
 		desc = NULL;
 		if (duk_get_prop_index(ctx, arr_idx, DESC_IDX(id)))
 		{
+			/* [ ... arr buffer ] */
 			desc = (dux_timer_desc *)duk_get_buffer(ctx, -1, NULL);
 		}
 		duk_pop(ctx);
+		/* [ ... arr ] */
 		if (!desc)
 		{
 			continue;
@@ -412,6 +414,8 @@ DUK_INTERNAL duk_int_t dux_timer_tick(duk_context *ctx)
 		{
 			desc->time_next += desc->interval;
 		}
+		duk_pop(ctx);
+		/* [ ... arr ] */
 	}
 
 	duk_pop(ctx);
