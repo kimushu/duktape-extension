@@ -61,20 +61,60 @@ DUK_LOCAL_DECL duk_ret_t promise_on_resolved(duk_context *ctx);
 DUK_LOCAL_DECL duk_ret_t promise_on_rejected(duk_context *ctx);
 
 /*
+ * Push new promise object
+ */
+DUK_LOCAL void promise_push_new(duk_context *ctx, duk_bool_t has_this)
+{
+	duk_idx_t idx;
+	/* [ ... ] */
+	duk_push_object(ctx);
+	/* [ ... obj ] */
+	idx = duk_get_top(ctx) - 1;
+	if (!has_this) {
+		duk_push_heap_stash(ctx);
+		/* [ ... obj stash ] */
+		duk_get_prop_string(ctx, -1, DUX_IPK_PROMISE);
+		/* [ ... obj stash constructor ] */
+	} else {
+		duk_push_this(ctx);
+		/* [ ... obj constructor ] */
+	}
+	/* [ ... obj ... constructor ] */
+	duk_get_prop_string(ctx, -1, "prototype");
+	/* [ ... obj ... constructor prototype ] */
+	duk_set_prototype(ctx, idx);
+	/* [ ... promise ... constructor ] */
+	duk_set_top(ctx, idx + 1);
+	/* [ ... promise ] */
+}
+
+/*
+ * Push new resolvers(resolve/reject) for promise object
+ */
+DUK_LOCAL void promise_push_resolvers(duk_context *ctx, duk_idx_t idx)
+{
+	/* [ ... promise ... ] */
+	/*       ^idx          */
+	idx = duk_normalize_index(ctx, idx);
+	duk_push_c_function(ctx, promise_on_resolved, 2);
+	/* [ ... promise ... func(resolver) ] */
+	duk_dup(ctx, idx);
+	dux_bind_arguments(ctx, 1);
+	/* [ ... promise ... bound_func(resolver) ] */
+	duk_push_c_function(ctx, promise_on_rejected, 2);
+	/* [ ... promise ... bound_func(resolver) func(rejector) ] */
+	duk_dup(ctx, idx);
+	dux_bind_arguments(ctx, 1);
+	/* [ ... promise ... bound_func(resolver) bound_func(rejector) ] */
+}
+
+/*
  * Invoke executor (function(resolve,reject){})
  */
 DUK_LOCAL duk_ret_t promise_invoke_executor(duk_context *ctx)
 {
 	/* [ executor promise ] */
-	duk_push_c_function(ctx, promise_on_resolved, 2);
-	/* [ executor promise func(resolver) ] */
-	duk_dup(ctx, 1);
-	dux_bind_arguments(ctx, 1);
-	/* [ executor promise bound_func(resolver) ] */
-	duk_push_c_function(ctx, promise_on_rejected, 2);
-	/* [ executor promise bound_func(resolver) func(rejector):3 ] */
-	duk_dup(ctx, 1);
-	dux_bind_arguments(ctx, 1);
+	promise_push_resolvers(ctx, 1);
 	/* [ executor promise bound_func(resolver) bound_func(rejector):3 ] */
 	duk_swap(ctx, 0, 1);
 	/* [ promise executor bound_func(resolver) bound_func(rejector):3 ] */
@@ -425,13 +465,7 @@ DUK_LOCAL duk_ret_t promise_resolve(duk_context *ctx)
 		return 1; /* return value; */
 	}
 
-	duk_push_object(ctx);
-	duk_push_this(ctx);
-	/* [ value obj constructor ] */
-	duk_get_prop_string(ctx, 2, "prototype");
-	duk_set_prototype(ctx, 1);
-	/* [ value promise constructor ] */
-	duk_pop(ctx);
+	promise_push_new(ctx, 1);
 	/* [ value promise ] */
 	duk_swap(ctx, 0, 1);
 	/* [ promise value ] */
@@ -454,13 +488,7 @@ DUK_LOCAL duk_ret_t promise_reject(duk_context *ctx)
 	duk_ret_t result;
 
 	/* [ reason ] */
-	duk_push_object(ctx);
-	duk_push_this(ctx);
-	/* [ reason obj constructor ] */
-	duk_get_prop_string(ctx, 2, "prototype");
-	duk_set_prototype(ctx, 1);
-	/* [ reason promise constructor ] */
-	duk_pop(ctx);
+	promise_push_new(ctx, 1);
 	/* [ reason promise ] */
 	duk_swap(ctx, 0, 1);
 	/* [ promise reason ] */
@@ -578,13 +606,8 @@ DUK_LOCAL duk_ret_t promise_all(duk_context *ctx)
 	/* [ arr ] */
 	len = duk_get_length(ctx, 0);
 	duk_push_c_function(ctx, promise_resolve, 1);
-	duk_push_object(ctx);
-	duk_push_this(ctx);
-	/* [ arr func obj constructor:3 ] */
-	duk_get_prop_string(ctx, 3, "prototype");
-	duk_set_prototype(ctx, 2);
-	/* [ arr func promise constructor:3 ] */
-	duk_pop(ctx);
+	/* [ arr func ] */
+	promise_push_new(ctx, 1);
 	/* [ arr func promise ] */
 	if (len == 0)
 	{
@@ -745,13 +768,8 @@ DUK_LOCAL duk_ret_t promise_race(duk_context *ctx)
 	/* [ arr ] */
 	len = duk_get_length(ctx, 0);
 	duk_push_c_function(ctx, promise_resolve, 1);
-	duk_push_object(ctx);
-	duk_push_this(ctx);
-	/* [ arr func obj constructor:3 ] */
-	duk_get_prop_string(ctx, 3, "prototype");
-	duk_set_prototype(ctx, 2);
-	/* [ arr func promise constructor:3 ] */
-	duk_pop(ctx);
+	/* [ arr func ] */
+	promise_push_new(ctx, 1);
 	/* [ arr func promise ] */
 	if (len == 0)
 	{
@@ -860,8 +878,8 @@ DUK_LOCAL duk_ret_t promise_constructor(duk_context *ctx)
  * List of static methods
  */
 DUK_LOCAL const duk_function_list_entry promise_funcs[] = {
-	{ "all", promise_all, DUK_VARARGS },
-	{ "race", promise_race, DUK_VARARGS },
+	{ "all", promise_all, 1 },
+	{ "race", promise_race, 1 },
 	{ "reject", promise_reject, 1 },
 	{ "resolve", promise_resolve, 1 },
 	{ NULL, NULL, 0 }
@@ -977,16 +995,7 @@ DUK_INTERNAL void dux_promise_get_cb_with_bool(duk_context *ctx, duk_idx_t func_
 	 * Create a promise which is converted to callback function
 	 * with (<bool> result, value)
 	 */
-	duk_push_object(ctx);
-	duk_push_heap_stash(ctx);
-	/* [ ... undef:func_idx ... obj stash ] */
-	duk_get_prop_string(ctx, -1, DUX_IPK_PROMISE);
-	/* [ ... undef:func_idx ... obj stash constructor ] */
-	duk_get_prop_string(ctx, -1, "prototype");
-	/* [ ... undef:func_idx ... obj stash constructor proto ] */
-	duk_set_prototype(ctx, -4);
-	/* [ ... undef:func_idx ... promise stash constructor ] */
-	duk_pop_2(ctx);
+	promise_push_new(ctx, 0);
 	/* [ ... undef:func_idx ... promise ] */
 	duk_push_array(ctx);
 	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
