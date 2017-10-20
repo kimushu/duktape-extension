@@ -8,8 +8,7 @@
  *
  * Internal data structure:
  *    heap_stash[DUX_IPK_THRPOOL] = new PlainBuffer(dux_thrpool_link);
- *    <thrpool object> = {
- *      PB: <PlainBuffer dux_thrpool_pool>,
+ *    <ArrayBuffer dux_thrpool_pool:thrpool> = {
  *      <Pointer 1>: <job object 1>,
  *           :
  *      <Pointer N>: <job object N>
@@ -30,7 +29,6 @@
 
 DUK_LOCAL const char DUX_IPK_THRPOOL[]      = DUX_IPK("Thrpool");
 DUK_LOCAL const char DUX_IPK_THRPOOL_JOB[]  = DUX_IPK("tpJob");
-DUK_LOCAL const char THRPOOL_KEY_BUF[]      = "PB";
 
 enum
 {
@@ -289,37 +287,41 @@ DUK_LOCAL void thrpool_increase(duk_context *ctx, dux_thrpool_pool *pool)
  */
 DUK_LOCAL duk_ret_t thrpool_finalize(duk_context *ctx)
 {
-	/* [ obj(thrpool) ] */
+	/* [ bufobj(thrpool) bool ] */
 	dux_thrpool_link *link;
 	dux_thrpool_pool *pool;
 	dux_thrpool_thread *thread;
 	duk_uint_t tidx;
+	duk_bool_t heap_destroy = duk_get_boolean(ctx, 1);
 
-	pool = (dux_thrpool_pool *)duk_get_buffer_data(ctx, -1, NULL);
+	pool = (dux_thrpool_pool *)duk_get_buffer_data(ctx, 0, NULL);
 	if (!pool)
 	{
 		return 0;
 	}
 
-	link = thrpool_get_link(ctx);
+	if (!heap_destroy)
+	{
+		link = thrpool_get_link(ctx);
 
-	/* Remove from pool chain */
-	if (pool->prev_pool)
-	{
-		pool->prev_pool->next_pool = pool->next_pool;
-	}
-	else
-	{
-		link->head = pool->next_pool;
-	}
+		/* Remove from pool chain */
+		if (pool->prev_pool)
+		{
+			pool->prev_pool->next_pool = pool->next_pool;
+		}
+		else
+		{
+			link->head = pool->next_pool;
+		}
 
-	if (pool->next_pool)
-	{
-		pool->next_pool->prev_pool = pool->prev_pool;
-	}
-	else
-	{
-		link->tail = pool->prev_pool;
+		if (pool->next_pool)
+		{
+			pool->next_pool->prev_pool = pool->prev_pool;
+		}
+		else
+		{
+			link->tail = pool->prev_pool;
+		}
 	}
 
 	/* Stop all worker threads */
@@ -481,14 +483,13 @@ DUK_INTERNAL void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk
 	}
 
 	size = sizeof(dux_thrpool_pool) + sizeof(*pool->threads) * max_threads;
-	duk_push_object(ctx);
-	/* [ ... obj ] */
-	duk_push_fixed_buffer(ctx, size);
-	/* [ ... obj buf ] */
-	pool = (dux_thrpool_pool *)duk_get_buffer(ctx, -1, NULL);
+	pool = (dux_thrpool_pool *)duk_push_fixed_buffer(ctx, size);
 	memset(pool, 0, size);
-	duk_put_prop_string(ctx, -2, THRPOOL_KEY_BUF);
-	/* [ ... obj(thrpool) ] */
+	/* [ ... buf ] */
+	duk_push_buffer_object(ctx, -1, 0, size, DUK_BUFOBJ_ARRAYBUFFER);
+	/* [ ... buf bufobj ] */
+	duk_replace(ctx, -2);
+	/* [ ... bufobj ] */
 
 	pool->self = duk_get_heapptr(ctx, -1);
 	pool->min_threads = min_threads;
@@ -503,9 +504,9 @@ DUK_INTERNAL void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk
 	}
 
 	/* Set finalizer */
-	duk_push_c_function(ctx, thrpool_finalize, 1);
+	duk_push_c_function(ctx, thrpool_finalize, 2);
 	duk_set_finalizer(ctx, -2);
-	/* [ ... obj(thrpool) ] */
+	/* [ ... bufobj(thrpool) ] */
 
 	/* Add to link list */
 	link = thrpool_get_link(ctx);
@@ -523,7 +524,7 @@ DUK_INTERNAL void dux_push_thrpool(duk_context *ctx, duk_uint_t min_threads, duk
 	{
 		thrpool_increase(ctx, pool);
 	}
-	/* [ ... obj(thrpool) ] */
+	/* [ ... bufobj(thrpool) ] */
 }
 
 /* Queue job to thread pool */
@@ -532,8 +533,8 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
                                     dux_thrpool_worker_t worker,
                                     dux_thrpool_completer_t completer)
 {
-	/* [ ... obj(thrpool) ... job ] */
-	/*       ^pool_index      ^top  */
+	/* [ ... bufobj(thrpool) ... job ] */
+	/*       ^pool_index         ^top  */
 
 	duk_size_t num_blocks;
 	dux_thrpool_pool *pool;
@@ -544,9 +545,7 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 
 	/* Get pool data */
 	pool_index = duk_normalize_index(ctx, pool_index);
-	duk_get_prop_string(ctx, pool_index, THRPOOL_KEY_BUF);
-	pool = (dux_thrpool_pool *)duk_require_buffer(ctx, -1, NULL);
-	duk_pop(ctx);
+	pool = (dux_thrpool_pool *)duk_require_buffer(ctx, pool_index, NULL);
 
 	/* Check job */
 	if (!duk_is_array(ctx, -1))
@@ -558,10 +557,10 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 
 	/* Add job data */
 	duk_push_fixed_buffer(ctx, sizeof(*job) + sizeof(*block) * num_blocks);
-	/* [ ... obj(thrpool) ... job buf ] */
+	/* [ ... bufobj(thrpool) ... job buf ] */
 	job = (dux_thrpool_job *)duk_get_buffer(ctx, -1, NULL);
 	duk_put_prop_string(ctx, -2, DUX_IPK_THRPOOL_JOB);
-	/* [ ... obj(thrpool) ... job ] */
+	/* [ ... bufobj(thrpool) ... job ] */
 
 	job->pool = pool;
 	job->result = -1;
@@ -575,7 +574,7 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 		dux_thrpool_block blk;
 
 		duk_get_prop_index(ctx, -1, index);
-		/* [ ... obj(thrpool) ... job any ] */
+		/* [ ... bufobj(thrpool) ... job any ] */
 		if ((blk.pointer = (void *)duk_get_lstring(ctx, -1, &blk.length)) ||
 			(blk.pointer = duk_get_buffer_data(ctx, -1, &blk.length)))
 		{
@@ -602,15 +601,15 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 			block->length = 0;
 		}
 		duk_pop(ctx);
-		/* [ ... obj(thrpool) ... job ] */
+		/* [ ... bufobj(thrpool) ... job ] */
 	}
 
 	duk_push_pointer(ctx, job);
-	/* [ ... obj(thrpool) ... job pointer ] */
+	/* [ ... bufobj(thrpool) ... job pointer ] */
 	duk_swap_top(ctx, -2);
-	/* [ ... obj(thrpool) ... pointer job ] */
+	/* [ ... bufobj(thrpool) ... pointer job ] */
 	duk_put_prop(ctx, pool_index);
-	/* [ ... obj(thrpool) ... ] */
+	/* [ ... bufobj(thrpool) ... ] */
 
 	pthread_mutex_lock(&pool->lock);
 	if (pool->pend_tail)
@@ -632,7 +631,7 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 		thrpool_increase(ctx, pool);
 	}
 
-	/* [ ... obj(thrpool) ... ] */
+	/* [ ... bufobj(thrpool) ... ] */
 }
 
 #endif  /* !DUX_OPT_NO_THRPOOL */
