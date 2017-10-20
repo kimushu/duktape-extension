@@ -1,13 +1,3 @@
-/*
- * ECMA class methods:
- *    Console.prototype.assert(value[, message][, ...args])
- *    Console.prototype.error([data][, ...args])
- *    Console.prototype.info([data][, ...args])
- *    Console.prototype.log([data][, ...args])
- *    Console.prototype.warn([data][, ...args])
- *
- * TODO: Currently, destinations(stdout/stderr) are not correctly handled.
- */
 #if !defined(DUX_OPT_NO_NODEJS_MODULES) && !defined(DUX_OPT_NO_CONSOLE)
 #if defined(DUX_OPT_NO_PROCESS)
 # error "DUX_OPT_NO_PROCESS must be used with DUX_OPT_NO_CONSOLE"
@@ -17,6 +7,7 @@
 #endif
 #include "../dux_internal.h"
 #include <stdio.h>
+#include <unistd.h>
 
 /*
  * Constants
@@ -33,6 +24,7 @@ DUK_LOCAL const char DUX_CONSOLE_NEWLINE[]  = "\n";
 DUK_LOCAL duk_ret_t console_print(duk_context *ctx, const char *ipk)
 {
 	duk_ret_t result;
+	int fd;
 	FILE *fp;
 
 	/* [ ... ] */
@@ -51,8 +43,20 @@ DUK_LOCAL duk_ret_t console_print(duk_context *ctx, const char *ipk)
 	duk_get_prop_string(ctx, 1, ipk);
 	/* [ string this pointer|stream ] */
 
-	fp = (FILE *)duk_get_pointer(ctx, 2);
-	if (fp) {
+	if ((fd = duk_get_int_default(ctx, 2, -1)) >= 0) {
+		/* [ string this int ] */
+		int len;
+		const char *buf = duk_safe_to_lstring(ctx, 0, (duk_size_t *)&len);
+		while (len > 0) {
+			int written = write(fd, buf, len);
+			if (written <= 0) {
+				break;
+			}
+			buf += written;
+			len -= written;
+		}
+		write(fd, DUX_CONSOLE_NEWLINE, 1);
+	} else if ((fp = (FILE *)duk_get_pointer(ctx, 2)) != NULL) {
 		/* [ string this pointer ] */
 		fputs(duk_safe_to_string(ctx, 0), fp);
 		fputs(DUX_CONSOLE_NEWLINE, fp);
@@ -94,7 +98,7 @@ DUK_LOCAL duk_ret_t console_constructor(duk_context *ctx)
 		duk_dup(ctx, 1);
 	}
 
-	if (duk_is_pointer(ctx, 2) || duk_is_object(ctx, 2)) {
+	if (duk_is_number(ctx, 2) || duk_is_pointer(ctx, 2) || duk_is_object(ctx, 2)) {
 		duk_put_prop_string(ctx, 0, DUX_IPK_CONSOLE_ERR);
 	} else {
 		return DUK_RET_TYPE_ERROR;
@@ -102,7 +106,7 @@ DUK_LOCAL duk_ret_t console_constructor(duk_context *ctx)
 	/* [ this stdout ] */
 
 	// Store stdout
-	if (duk_is_pointer(ctx, 1) || duk_is_object(ctx, 1)) {
+	if (duk_is_number(ctx, 1) || duk_is_pointer(ctx, 1) || duk_is_object(ctx, 1)) {
 		duk_put_prop_string(ctx, 0, DUX_IPK_CONSOLE_OUT);
 	} else {
 		return DUK_RET_TYPE_ERROR;
@@ -191,8 +195,8 @@ DUK_INTERNAL duk_errcode_t console_entry(duk_context *ctx)
 	/* [ require module exports constructor:3 ] */
 	duk_dup(ctx, 3);
 	/* [ require module exports constructor:3 constructor:4 ] */
-	duk_push_pointer(ctx, stdout);
-	duk_push_pointer(ctx, stderr);
+	duk_push_int(ctx, STDOUT_FILENO);
+	duk_push_int(ctx, STDERR_FILENO);
 	duk_new(ctx, 2);
 	/* [ require module exports constructor:3 console:4 ] */
 	duk_swap(ctx, 3, 4);
