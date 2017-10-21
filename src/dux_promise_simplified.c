@@ -89,6 +89,19 @@ DUK_LOCAL void promise_push_new(duk_context *ctx, duk_bool_t has_this)
 }
 
 /*
+ * Set promise pending state
+ */
+DUK_LOCAL void promise_set_pending(duk_context *ctx, duk_idx_t idx)
+{
+	/* [ ... promise ... ] */
+	idx = duk_normalize_index(ctx, idx);
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, idx, DUX_IPK_PROMISE_FULFILL_REACTIONS);
+	duk_push_array(ctx);
+	duk_put_prop_string(ctx, idx, DUX_IPK_PROMISE_REJECT_REACTIONS);
+}
+
+/*
  * Push new resolvers(resolve/reject) for promise object
  */
 DUK_LOCAL void promise_push_resolvers(duk_context *ctx, duk_idx_t idx)
@@ -110,7 +123,7 @@ DUK_LOCAL void promise_push_resolvers(duk_context *ctx, duk_idx_t idx)
 
 /*
  * Construct a new Promise with resolvers
- * Stack on entyr:  [ ... ]
+ * Stack on entry:  [ ... ]
  * Stack on return: [ ... promise resolve reject ]
  */
 DUK_INTERNAL void dux_promise_new(duk_context *ctx)
@@ -118,6 +131,7 @@ DUK_INTERNAL void dux_promise_new(duk_context *ctx)
 	/* [ ... ] */
 	promise_push_new(ctx, 0);
 	/* [ ... promise ] */
+	promise_set_pending(ctx, -1);
 	promise_push_resolvers(ctx, -1);
 	/* [ ... promise resolve reject ] */
 }
@@ -352,10 +366,7 @@ DUK_LOCAL duk_ret_t promise_proto_then(duk_context *ctx)
 	duk_get_prototype(ctx, 3);
 	duk_set_prototype(ctx, 2);
 	/* [ onFulfilled onRejected new_promise this:3 ] */
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	promise_set_pending(ctx, 2);
 
 	if (duk_has_prop_string(ctx, 3, DUX_IPK_PROMISE_VALUE))
 	{
@@ -737,10 +748,7 @@ DUK_LOCAL duk_ret_t promise_all(duk_context *ctx)
 	/* [ arr func promise ] */
 	duk_push_uint(ctx, waiting);
 	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_WAITING_COUNT);
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	promise_set_pending(ctx, 2);
 	/* [ arr func promise ] */
 	return 1; /* return promise; */
 }
@@ -857,10 +865,7 @@ DUK_LOCAL duk_ret_t promise_race(duk_context *ctx)
 	/* [ arr func promise ] */
 
 pend:
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	promise_set_pending(ctx, 2);
 	/* [ arr func promise ] */
 	return 1; /* return promise; */
 }
@@ -880,10 +885,7 @@ DUK_LOCAL duk_ret_t promise_constructor(duk_context *ctx)
 
 	duk_push_this(ctx);
 	/* [ executor this ] */
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 1, DUX_IPK_PROMISE_FULFILL_REACTIONS);
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, 1, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	promise_set_pending(ctx, 1);
 	/* [ executor this ] */
 	return promise_invoke_executor(ctx);
 }
@@ -1014,10 +1016,7 @@ DUK_INTERNAL void dux_promise_new_with_node_callback(duk_context *ctx, duk_idx_t
 	 */
 	promise_push_new(ctx, 0);
 	/* [ ... undef:func_idx ... promise ] */
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE_FULFILL_REACTIONS);
-	duk_push_array(ctx);
-	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE_REJECT_REACTIONS);
+	promise_set_pending(ctx, -2);
 	/* [ ... undef:func_idx ... promise ] */
 	duk_push_c_function(ctx, promise_cb_node_style, 3);
 	duk_dup(ctx, -2);
