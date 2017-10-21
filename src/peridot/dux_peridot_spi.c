@@ -168,35 +168,27 @@ DUK_LOCAL duk_ret_t spicon_completer(duk_context *ctx)
 	if (ret == 0)
 	{
 		/* Transfer succeeded */
-		duk_push_true(ctx);
-		/* [ job int func true ] */
+		duk_push_undefined(ctx);
+		/* [ job int func undefined ] */
 		duk_get_prop_index(ctx, 0, SPI_BLKIDX_READBUF);
-		/* [ job int func true buf:4 ] */
-		if (duk_is_null_or_undefined(ctx, 4))
-		{
-			duk_pop(ctx);
-			/* [ job int func true ] */
-			nargs = 1;
-		}
-		else
+		/* [ job int func undefined buf:4 ] */
+		if (!duk_is_null_or_undefined(ctx, 4))
 		{
 			duk_push_buffer_object(ctx, 4,
 					0, duk_get_length(ctx, 4),
 					DUK_BUFOBJ_NODEJS_BUFFER);
-			/* [ job int func true buf:4 bufobj(Buffer):5 ] */
+			/* [ job int func undefined buf:4 bufobj(Buffer):5 ] */
 			duk_remove(ctx, 4);
-			/* [ job int func true bufobj(Buffer):4 ] */
-			nargs = 2;
+			/* [ job int func undefined bufobj(Buffer):4 ] */
 		}
+		nargs = 2;
 	}
 	else
 	{
 		/* Transfer failed */
-		duk_push_false(ctx);
-		/* [ job int func false ] */
 		duk_push_error_object(ctx, DUK_ERR_ERROR, "SPI transfer failed (%d)", ret);
-		/* [ job int func false err ] */
-		nargs = 2;
+		/* [ job int func err ] */
+		nargs = 1;
 	}
 
 	duk_call(ctx, nargs);

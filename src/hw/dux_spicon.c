@@ -136,7 +136,7 @@ DUK_LOCAL duk_ret_t spicon_proto_transfer_body(duk_context *ctx,
 
 	dux_spicon_data *data = spicon_get_data(ctx);
 
-	dux_promise_get_cb_with_bool(ctx, 1);
+	dux_promise_new_with_node_callback(ctx, 1);
 	/* [ buf/undefined func promise/undefined ] */
 	duk_swap(ctx, 0, 2);
 	/* [ promise/undefined func buf/undefined ] */

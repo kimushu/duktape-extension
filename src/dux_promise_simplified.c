@@ -109,6 +109,20 @@ DUK_LOCAL void promise_push_resolvers(duk_context *ctx, duk_idx_t idx)
 }
 
 /*
+ * Construct a new Promise with resolvers
+ * Stack on entyr:  [ ... ]
+ * Stack on return: [ ... promise resolve reject ]
+ */
+DUK_INTERNAL void dux_promise_new(duk_context *ctx)
+{
+	/* [ ... ] */
+	promise_push_new(ctx, 0);
+	/* [ ... promise ] */
+	promise_push_resolvers(ctx, -1);
+	/* [ ... promise resolve reject ] */
+}
+
+/*
  * Invoke executor (function(resolve,reject){})
  */
 DUK_LOCAL duk_ret_t promise_invoke_executor(duk_context *ctx)
@@ -961,23 +975,26 @@ DUK_INTERNAL duk_int_t dux_promise_tick(duk_context *ctx)
 }
 
 /*
- * Entry of callback function with boolean result
+ * Entry of Node.js style callback
  */
-DUK_LOCAL duk_ret_t promise_cb_with_bool(duk_context *ctx)
+DUK_LOCAL duk_ret_t promise_cb_node_style(duk_context *ctx)
 {
-	duk_bool_t resolved;
+	duk_bool_t resolved = 0;
 
-	/* [ promise result value/reason ] */
-	resolved = duk_require_boolean(ctx, 1);
-	duk_remove(ctx, 1);
-	/* [ promise value/reason ] */
+	/* [ promise error result ] */
+	if (duk_is_null_or_undefined(ctx, 1)) {
+		duk_remove(ctx, 1);
+		resolved = 1;
+	}
+	/* [ promise result/reason ] */
 	return promise_transition(ctx, resolved);
 }
 
 /*
- * Get callback function with boolean result and promise object
+ * Create promise object with Node.js style callback:
+ * function callback(error, result) {}
  */
-DUK_INTERNAL void dux_promise_get_cb_with_bool(duk_context *ctx, duk_idx_t func_idx)
+DUK_INTERNAL void dux_promise_new_with_node_callback(duk_context *ctx, duk_idx_t func_idx)
 {
 	/* [ ... func:func_idx ... ] */
 
@@ -993,7 +1010,7 @@ DUK_INTERNAL void dux_promise_get_cb_with_bool(duk_context *ctx, duk_idx_t func_
 
 	/*
 	 * Create a promise which is converted to callback function
-	 * with (<bool> result, value)
+	 * with (error, result)
 	 */
 	promise_push_new(ctx, 0);
 	/* [ ... undef:func_idx ... promise ] */
@@ -1002,7 +1019,7 @@ DUK_INTERNAL void dux_promise_get_cb_with_bool(duk_context *ctx, duk_idx_t func_
 	duk_push_array(ctx);
 	duk_put_prop_string(ctx, -2, DUX_IPK_PROMISE_REJECT_REACTIONS);
 	/* [ ... undef:func_idx ... promise ] */
-	duk_push_c_function(ctx, promise_cb_with_bool, 3);
+	duk_push_c_function(ctx, promise_cb_node_style, 3);
 	duk_dup(ctx, -2);
 	dux_bind_arguments(ctx, 1);
 	/* [ ... undef:func_idx ... promise bound_func ] */

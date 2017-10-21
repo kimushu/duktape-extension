@@ -89,6 +89,8 @@ DUK_LOCAL duk_ret_t i2ccon_constructor(duk_context *ctx)
 
 /*
  * Common implementation of I2CConnection read/write functions
+ * Stack on entry:  [ writedata readlen callback ]
+ * Stack on return: [ promise/undefined ]
  */
 DUK_LOCAL duk_ret_t i2ccon_proto_transfer_body(duk_context *ctx,
                                                duk_bool_t write)
@@ -122,7 +124,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_transfer_body(duk_context *ctx,
 		/* [ undefined buf/undefined callback ] */
 	}
 
-	dux_promise_get_cb_with_bool(ctx, 2);
+	dux_promise_new_with_node_callback(ctx, 2);
 	/* [ buf/undefined buf/undefined func promise/undefined ] */
 	duk_insert(ctx, 0);
 	/* [ promise/undefined buf/undefined buf/undefined func ] */
