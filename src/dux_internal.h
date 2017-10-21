@@ -30,6 +30,7 @@ extern "C" {
 #include "hw/dux_hardware.h"
 #include "peridot/dux_peridot.h"
 #include "node/dux_immediate.h"
+#include "packages/delay.h"
 
 #ifdef __cplusplus
 } /* extern "C" */
