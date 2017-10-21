@@ -1016,7 +1016,7 @@ DUK_INTERNAL void dux_promise_new_with_node_callback(duk_context *ctx, duk_idx_t
 	 */
 	promise_push_new(ctx, 0);
 	/* [ ... undef:func_idx ... promise ] */
-	promise_set_pending(ctx, -2);
+	promise_set_pending(ctx, -1);
 	/* [ ... undef:func_idx ... promise ] */
 	duk_push_c_function(ctx, promise_cb_node_style, 3);
 	duk_dup(ctx, -2);
