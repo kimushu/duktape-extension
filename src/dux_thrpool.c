@@ -545,7 +545,7 @@ DUK_INTERNAL void dux_thrpool_queue(duk_context *ctx,
 
 	/* Get pool data */
 	pool_index = duk_normalize_index(ctx, pool_index);
-	pool = (dux_thrpool_pool *)duk_require_buffer(ctx, pool_index, NULL);
+	pool = (dux_thrpool_pool *)duk_require_buffer_data(ctx, pool_index, NULL);
 
 	/* Check job */
 	if (!duk_is_array(ctx, -1))
