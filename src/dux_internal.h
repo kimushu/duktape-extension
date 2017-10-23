@@ -31,6 +31,7 @@ extern "C" {
 #include "peridot/dux_peridot.h"
 #include "node/dux_immediate.h"
 #include "packages/delay.h"
+#include "packages/sprintf.h"
 
 #ifdef __cplusplus
 } /* extern "C" */

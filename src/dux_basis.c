@@ -21,6 +21,7 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
 		DUX_INIT_PERIDOT
 		DUX_INIT_IMMEDIATE
 		DUX_INIT_PACKAGE_DELAY
+		DUX_INIT_PACKAGE_SPRINTF
 		NULL
 	);
 }

@@ -29,6 +29,7 @@ SOURCES = \
 		peridot/dux_peridot_spi.c \
 		peridot/dux_peridot_servo.c \
 	packages/delay.c \
+	packages/sprintf.c \
 
 PREAMBLE = dux_preamble.h
 DEP = .dukext.dep

@@ -16,7 +16,7 @@ endif
 
 C_SOURCES = tester_host.c espresso.c
 
-CFLAGS = -DDUX_ENABLE_PACKAGE_DELAY
+CFLAGS = -DDUX_ENABLE_PACKAGE_DELAY -DDUX_ENABLE_PACKAGE_SPRINTF
 LIBS = -lm -pthread
 
 ifeq ($(OS),Windows_NT)
