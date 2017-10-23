@@ -294,7 +294,6 @@ out_char:
 
 DUK_LOCAL duk_ret_t package_sprintf_entry(duk_context *ctx)
 {
-    fprintf(stderr, "CHECKPOINT1!\n");
     /* [ require module exports ] */
     duk_push_c_function(ctx, sprintf_body, DUK_VARARGS);
     duk_set_magic(ctx, -1, 0);
@@ -309,7 +308,6 @@ DUK_LOCAL duk_ret_t package_sprintf_entry(duk_context *ctx)
 
 DUK_LOCAL duk_ret_t package_sprintfjs_entry(duk_context *ctx)
 {
-    fprintf(stderr, "CHECKPOINT2!\n");
     /* [ require module exports ] */
     duk_dup(ctx, 0);
     /* [ require module exports require ] */
