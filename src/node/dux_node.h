@@ -8,6 +8,7 @@
 #include "dux_process.h"
 #include "dux_timer.h"
 #include "dux_util.h"
+#include "dux_path.h"
 
 DUK_INTERNAL_DECL duk_errcode_t dux_node_init(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_node_tick(duk_context *ctx);

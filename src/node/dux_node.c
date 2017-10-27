@@ -9,6 +9,7 @@ DUK_INTERNAL duk_errcode_t dux_node_init(duk_context *ctx)
         DUX_INIT_PROCESS
         DUX_INIT_TIMER
         DUX_INIT_UTIL
+        DUX_INIT_PATH
         NULL
     );
 }
@@ -21,6 +22,7 @@ DUK_INTERNAL duk_int_t dux_node_tick(duk_context *ctx)
         DUX_TICK_PROCESS
         DUX_TICK_TIMER
         DUX_TICK_UTIL
+        DUX_TICK_PATH
         NULL
     );
 }

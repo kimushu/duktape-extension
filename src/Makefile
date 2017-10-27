@@ -11,6 +11,7 @@ SOURCES = \
 		node/dux_events.c \
 		node/dux_process.c \
 		node/dux_util.c \
+		node/dux_path.c \
 		node/dux_console.c \
 		node/dux_timer.c \
 			altera_hal/dux_timer_alt.c \
