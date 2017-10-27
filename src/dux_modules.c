@@ -94,17 +94,17 @@ DUK_LOCAL duk_ret_t modules_require(duk_context *ctx)
 		const char *dir;
 		duk_get_prop_string(ctx, 1, "filename");
 		/* [ name parent_module filename ] */
-		dir = duk_get_string(ctx, 2);
-		if (!dir) {
+		full_path = duk_get_string(ctx, 2);
+		if (!full_path) {
 			return modules_not_found(ctx, name);
 		}
-		dir = dux_path_dirname(ctx, dir);
+		dir = dux_path_dirname(ctx, full_path);
 		/* [ name parent_module filename dirname ] */
 		duk_push_string(ctx, "/");
 		duk_dup(ctx, 0);
 		duk_concat(ctx, 3);
 		/* [ name parent_module filename concat_path ] */
-		dux_path_normalize(ctx, duk_get_string(ctx, 3));
+		full_path = dux_path_normalize(ctx, duk_get_string(ctx, 3));
 		/* [ name parent_module filename concat_path full_path ] */
 		duk_replace(ctx, 2);
 		/* [ name parent_module full_path concat_path ] */
