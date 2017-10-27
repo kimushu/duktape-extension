@@ -1,0 +1,1 @@
+exports.self = "mod2.js" /* without semicolon */

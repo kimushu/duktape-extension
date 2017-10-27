@@ -2,6 +2,7 @@
 #include "dukext.h"
 #include "espresso.h"
 #include <stdio.h>
+#include <string.h>
 
 static const char CJS_PROLOGUE[] = "(function(require,module,exports){";
 static const int CJS_PROLOGUE_LEN = sizeof(CJS_PROLOGUE) - 1;
@@ -9,6 +10,52 @@ static const char CJS_EPILOGUE[] = "})(require,m={exports:{}},m.exports)";
 static const int CJS_EPILOGUE_LEN = sizeof(CJS_EPILOGUE) - 1;
 
 static duk_context *g_ctx;
+
+static duk_ret_t test_file_reader(duk_context *ctx, const char *path)
+{
+	static const char *maps[] = {
+		"/mod1",
+		"/mod1.js",
+		"/mod1.json",
+		"/json1.json",
+		"/mod2.js",
+		"/sub/mod3.js",
+		"/mod4.js",
+		NULL,
+	};
+	char name[256];
+	FILE *fp;
+	const char **item;
+	void *buf;
+	size_t len;
+
+	for (item = maps; *item; ++item) {
+		if (strcmp(*item, path) == 0) {
+			goto found;
+		}
+	}
+	duk_push_error_object(ctx, DUK_ERR_ERROR, "File not found: %s", path);
+	return DUK_EXEC_ERROR;
+
+found:
+	strcpy(name, "fs");
+	strcat(name, path);
+	fp = fopen(name, "rb");
+	if (!fp) {
+		return duk_error(ctx, DUK_ERR_ERROR, "TEST PANIC: not found: %s", name);
+	}
+	fseek(fp, 0, SEEK_END);
+	len = ftell(fp);
+	buf = duk_push_fixed_buffer(ctx, len);
+	fseek(fp, 0, SEEK_SET);
+	fread(buf, 1, len, fp);
+	duk_buffer_to_string(ctx, -1);
+	return DUK_EXEC_SUCCESS;
+}
+
+static const dux_file_accessor file_accessor = {
+	.reader = test_file_reader,
+};
 
 static void my_fatal(void *udata, const char *msg)
 {
@@ -32,7 +79,7 @@ int main(int argc, char *argv[])
 	g_ctx = ctx;
 	fprintf(stderr, "INFO: heap created\n");
 
-	dux_initialize(ctx, NULL);
+	dux_initialize(ctx, &file_accessor);
 	fprintf(stderr, "INFO: dux initialized\n");
 
 	espresso_init(ctx);
