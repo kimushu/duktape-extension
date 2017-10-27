@@ -11,8 +11,6 @@
 extern "C" {
 #endif
 
-#define DUX_VERSION_STRING  "0.1.0"
-
 #if defined(__nios2__) && defined(__hal__)
 #include <system.h>
 #endif  /* __nios2__ && __hal__ */
@@ -22,6 +20,7 @@ extern "C" {
  */
 
 #include "dux_config.h"
+#include "dukext.h"
 #include "dux_basis.h"
 #include "dux_modules.h"
 #include "dux_promise.h"

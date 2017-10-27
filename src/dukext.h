@@ -8,6 +8,16 @@ extern "C" {
 #endif
 
 /*
+ * Version number: (major*10000)+(minor*100)+(patch)
+ */
+#define DUX_VERSION         00100L
+
+/*
+ * Version string: major.minor.patch
+ */
+#define DUX_VERSION_STRING  "0.1.0"
+
+/*
  * Initialization
  */
 DUK_EXTERNAL_DECL duk_errcode_t dux_initialize(duk_context *ctx);
