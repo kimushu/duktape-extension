@@ -8,6 +8,7 @@
  */
 
 DUK_INTERNAL_DECL duk_errcode_t dux_path_init(duk_context *ctx);
+DUK_INTERNAL_DECL const char *dux_path_basename(duk_context *ctx, const char *path, const char *ext);
 DUK_INTERNAL_DECL const char *dux_path_dirname(duk_context *ctx, const char *path);
 DUK_INTERNAL_DECL const char *dux_path_normalize(duk_context *ctx, const char *path);
 DUK_INTERNAL_DECL const char *dux_path_relative(duk_context *ctx, const char *from, const char *to);

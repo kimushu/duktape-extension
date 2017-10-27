@@ -4,4 +4,7 @@
 // #define DUX_ENABLE_PACKAGE_DELAY
 // #define DUX_ENABLE_PACKAGE_SPRINTF
 
+#define DUX_PATH_DELIMITER      ':'
+#define DUX_PATH_SEPARATOR      '/'
+
 #endif  /* !DUX_CONFIG_H_INCLUDED */

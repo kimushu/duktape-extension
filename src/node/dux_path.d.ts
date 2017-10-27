@@ -13,7 +13,7 @@ declare namespace Dux {
          * @param path
          * @param ext An optional file extension
          */
-        // function basename(path: string, ext?: string): string;
+        function basename(path: string, ext?: string): string;
 
         /**
          * Provides the platform-specific path delimiter
