@@ -459,6 +459,24 @@ static duk_ret_t assert_is_not_false(duk_context *ctx)
 	return 0;
 }
 
+static duk_ret_t assert_is_null(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (!duk_is_null(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is null", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
+static duk_ret_t assert_is_not_null(duk_context *ctx)
+{
+	/* [ value message ] */
+	if (duk_is_null(ctx, 0)) {
+		assert_do_throw(ctx, "'%s' is not null", duk_safe_to_string(ctx, 0));
+	}
+	return 0;
+}
+
 static duk_ret_t assert_instanceof(duk_context *ctx)
 {
 	/* [ value constructor message ] */
@@ -867,6 +885,8 @@ static const duk_function_list_entry assert_funcs[] = {
 	{ "isNotTrue", assert_is_not_true, 2 },
 	{ "isFalse", assert_is_false, 2 },
 	{ "isNotFalse", assert_is_not_false, 2 },
+	{ "isNull", assert_is_null, 2 },
+	{ "isNotNull", assert_is_not_null, 2 },
 	{ "instanceOf", assert_instanceof, 3 },
 	{ "notInstanceOf", assert_not_instanceof, 3 },
 	{ "isUndefined", assert_is_undefined, 2 },

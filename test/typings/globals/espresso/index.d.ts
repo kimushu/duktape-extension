@@ -19,6 +19,8 @@ interface assert {
 	isNotTrue: (value: any, message?: string) => void;
 	isFalse: (value: any, message?: string) => void;
 	isNotFalse: (value: any, message?: string) => void;
+	isNull: (value: any, message?: string) => void;
+	isNotNull: (value: any, message?: string) => void;
 	instanceOf: (value: any, constructor: Function, message?: string) => void;
 	notInstanceOf: (value: any, constructor: Function, message?: string) => void;
 	isUndefined: (value: any, message?: string) => void;
