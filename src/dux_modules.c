@@ -115,6 +115,20 @@ DUK_LOCAL duk_ret_t modules_require(duk_context *ctx)
 	duk_dup(ctx, 0);
 #endif  /* DUX_OPT_NO_PATH */
 
+	// Lookup from cache
+	duk_push_current_function(ctx);
+	/* [ name parent_module full_path require:3 ] */
+	duk_get_prop_string(ctx, 3, DUX_KEY_MODULES_CACHE);
+	/* [ name parent_module full_path require:3 cache:4 ] */
+	if (duk_get_prop_string(ctx, 4, full_path)) {
+		// Cached
+		/* [ name parent_module full_path require:3 cache:4 module:5 ] */
+		duk_get_prop_string(ctx, 5, "exports");
+		return 1;
+	}
+	/* [ name parent_module full_path require:3 cache:4 undefined:5 ] */
+	duk_pop_3(ctx);
+
 	/* [ name parent_module full_path ] */
 	// Try X as JavaScript
 	if (dux_read_file(ctx, full_path) == DUK_EXEC_SUCCESS) {
