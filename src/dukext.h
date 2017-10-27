@@ -18,9 +18,21 @@ extern "C" {
 #define DUX_VERSION_STRING  "0.1.0"
 
 /*
+ * Typedefs
+ */
+typedef duk_ret_t (*dux_file_reader)(duk_context *ctx, const char *path);
+
+/*
+ * Structures
+ */
+typedef struct dux_file_accessor_s {
+    dux_file_reader reader;
+} dux_file_accessor;
+
+/*
  * Initialization
  */
-DUK_EXTERNAL_DECL duk_errcode_t dux_initialize(duk_context *ctx);
+DUK_EXTERNAL_DECL duk_errcode_t dux_initialize(duk_context *ctx, const dux_file_accessor *file_accessor);
 
 /*
  * Tick handling

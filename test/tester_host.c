@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	g_ctx = ctx;
 	fprintf(stderr, "INFO: heap created\n");
 
-	dux_initialize(ctx);
+	dux_initialize(ctx, NULL);
 	fprintf(stderr, "INFO: dux initialized\n");
 
 	espresso_init(ctx);

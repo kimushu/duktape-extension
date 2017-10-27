@@ -49,6 +49,7 @@ DUK_INTERNAL_DECL void *dux_to_byte_buffer(duk_context *ctx, duk_idx_t index, du
 DUK_INTERNAL_DECL duk_int_t dux_require_int_range(duk_context *ctx, duk_idx_t index,
 		duk_int_t minimum, duk_int_t maximum);
 DUK_INTERNAL_DECL duk_bool_t dux_get_array_index(duk_context *ctx, duk_idx_t key_idx, duk_uarridx_t *result);
+DUK_INTERNAL_DECL duk_ret_t dux_read_file(duk_context *ctx, const char *path);
 
 /*
  * Bind arguments (Function.bind(undefined, args...))
@@ -83,7 +84,7 @@ DUK_INLINE void dux_bind_this_arguments(duk_context *ctx, duk_idx_t nargs)
 	duk_push_string(ctx, "bind");
 	duk_insert(ctx, -(2 + nargs));
 	/* [ ... func "bind" thisArg arg1 ... argN ] */
-	duk_call_prop(ctx, -(3 + nargs), (2 + nargs));
+	duk_call_prop(ctx, -(3 + nargs), (1 + nargs));
 	/* [ ... func bound_func ] */
 	duk_replace(ctx, -2);
 	/* [ ... bound_func ] */

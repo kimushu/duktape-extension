@@ -4,14 +4,26 @@
 
 // #define DEBUG
 
-DUK_LOCAL const char DUX_IPK_TABLE[]  = DUX_IPK("bTable");
-DUK_LOCAL const char DUX_IPK_STORE[]  = DUX_IPK("bStore");
+DUK_LOCAL const char DUX_IPK_TABLE[]        = DUX_IPK("bTable");
+DUK_LOCAL const char DUX_IPK_STORE[]        = DUX_IPK("bStore");
+DUK_LOCAL const char DUX_IPK_FILE_ACCESS[]  = DUX_IPK("bFile");
 
 /*
  * Initialize Duktape extension modules
  */
-DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx)
+DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx, const dux_file_accessor *file_accessor)
 {
+	if (file_accessor) {
+		/* [ ... ] */
+		duk_push_heap_stash(ctx);
+		/* [ ... stash ] */
+		duk_push_pointer(ctx, (void *)file_accessor);
+		/* [ ... stash pointer ] */
+		duk_put_prop_string(ctx, -2, DUX_IPK_FILE_ACCESS);
+		/* [ ... stash ] */
+		duk_pop(ctx);
+		/* [ ... ] */
+	}
 	return dux_invoke_initializers(ctx,
 		DUX_INIT_MODULES
 		DUX_INIT_PROMISE
@@ -262,4 +274,23 @@ DUK_INTERNAL duk_bool_t dux_get_array_index(duk_context *ctx, duk_idx_t key_idx,
 fail:
 	duk_set_top(ctx, top);
 	return 0;
+}
+
+DUK_INTERNAL duk_int_t dux_read_file(duk_context *ctx, const char *path)
+{
+	const dux_file_accessor *accessor;
+
+	/* [ ... ] */
+	duk_push_heap_stash(ctx);
+	/* [ ... stash ] */
+	duk_get_prop_string(ctx, -1, DUX_IPK_FILE_ACCESS);
+	accessor = (const dux_file_accessor *)duk_get_pointer(ctx, -1);
+	duk_pop_2(ctx);
+	/* [ ... ] */
+	if ((!accessor) || (!accessor->reader)) {
+		duk_push_error_object(ctx, DUK_ERR_ERROR, "No file reader");
+		/* [ ... err ] */
+		return DUK_EXEC_ERROR;
+	}
+	return (*accessor->reader)(ctx, path);
 }
