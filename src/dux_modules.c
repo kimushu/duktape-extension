@@ -119,6 +119,12 @@ DUK_LOCAL duk_ret_t modules_require(duk_context *ctx)
 	// Try X as JavaScript
 	if (dux_read_file(ctx, full_path) == DUK_EXEC_SUCCESS) {
 		/* [ name parent_module full_path source:3 ] */
+		int path_len = strlen(full_path);
+		if ((path_len >= 5) && (strcmp(full_path + path_len - 5, ".json") == 0)) {
+			// Load JSON object
+			duk_json_decode(ctx, 3);
+			return 1;
+		}
 	} else {
 		/* [ name parent_module full_path err:3 ] */
 		duk_pop(ctx);
