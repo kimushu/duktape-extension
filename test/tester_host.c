@@ -11,6 +11,60 @@ static const int CJS_EPILOGUE_LEN = sizeof(CJS_EPILOGUE) - 1;
 
 static duk_context *g_ctx;
 
+static duk_ret_t eval_mod_caller(duk_context *ctx)
+{
+	int result = -1;
+	/* [ obj type data len|undefined ] */
+	switch (duk_get_int(ctx, 1)) {
+	case 0:
+		dux_eval_module_file(ctx, duk_get_string(ctx, 2));
+		break;
+	case 1:
+		dux_eval_module_file_noresult(ctx, duk_get_string(ctx, 2));
+		break;
+	case 2:
+		dux_eval_module_string(ctx, duk_get_string(ctx, 2));
+		break;
+	case 3:
+		dux_eval_module_string_noresult(ctx, duk_get_string(ctx, 2));
+		break;
+	case 4:
+		dux_eval_module_lstring(ctx, duk_get_string(ctx, 2), duk_get_uint(ctx, 3));
+		break;
+	case 5:
+		dux_eval_module_lstring_noresult(ctx, duk_get_string(ctx, 2), duk_get_uint(ctx, 3));
+		break;
+	case 10:
+		result = dux_peval_module_file(ctx, duk_get_string(ctx, 2));
+		break;
+	case 11:
+		result = dux_peval_module_file_noresult(ctx, duk_get_string(ctx, 2));
+		break;
+	case 12:
+		result = dux_peval_module_string(ctx, duk_get_string(ctx, 2));
+		break;
+	case 13:
+		result = dux_peval_module_string_noresult(ctx, duk_get_string(ctx, 2));
+		break;
+	case 14:
+		result = dux_peval_module_lstring(ctx, duk_get_string(ctx, 2), duk_get_uint(ctx, 3));
+		break;
+	case 15:
+		result = dux_peval_module_lstring_noresult(ctx, duk_get_string(ctx, 2), duk_get_uint(ctx, 3));
+		break;
+	}
+	/* [ obj type data len|undefined (retval|err) ] */
+	duk_push_int(ctx, result);
+	duk_put_prop_string(ctx, 0, "result");
+	duk_push_int(ctx, duk_get_top(ctx) - 4);
+	duk_put_prop_string(ctx, 0, "pushed");
+	if (duk_get_top(ctx) > 4) {
+		duk_put_prop_string(ctx, 0, "retval");
+	}
+	duk_set_top(ctx, 1);
+	return 1;
+}
+
 static duk_ret_t test_file_reader(duk_context *ctx, const char *path)
 {
 	static const char *maps[] = {
@@ -84,6 +138,9 @@ int main(int argc, char *argv[])
 
 	espresso_init(ctx);
 	fprintf(stderr, "INFO: espresso test framework initialized\n");
+
+	duk_push_c_function(ctx, eval_mod_caller, 4);
+	duk_put_global_string(ctx, "__eval_mod_caller");
 
 	for (i = 1; i < argc; ++i) {
 		fp = fopen(argv[i], "rb");

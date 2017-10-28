@@ -54,7 +54,7 @@ DUK_INTERNAL_DECL duk_ret_t dux_read_file(duk_context *ctx, const char *path);
 /*
  * Bind arguments (Function.bind(undefined, args...))
  *
- * [ func arg1 ... argN ]  ->  [ bound_func ]
+ * [ ... func arg1 ... argN ]  ->  [ ... bound_func ]
  */
 DUK_LOCAL
 DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
@@ -75,7 +75,7 @@ DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 /*
  * Bind arguments with this value (Function.bind(thisArg, args...))
  *
- * [ func thisArg arg1 ... argN ]  ->  [ bound_func ]
+ * [ ... func thisArg arg1 ... argN ]  ->  [ ... bound_func ]
  */
 DUK_LOCAL
 DUK_INLINE void dux_bind_this_arguments(duk_context *ctx, duk_idx_t nargs)
@@ -88,6 +88,17 @@ DUK_INLINE void dux_bind_this_arguments(duk_context *ctx, duk_idx_t nargs)
 	/* [ ... func bound_func ] */
 	duk_replace(ctx, -2);
 	/* [ ... bound_func ] */
+}
+
+/*
+ * Bind this value (Function.bind(thisArg))
+ *
+ * [ ... func thisArg ]  ->  [ ... bound_func ]
+ */
+DUK_LOCAL
+DUK_INLINE void dux_bind_this(duk_context *ctx)
+{
+	return dux_bind_this_arguments(ctx, 0);
 }
 
 /*

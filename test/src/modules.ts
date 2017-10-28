@@ -51,4 +51,65 @@ describe("Modules", () => {
     it("throws Error when module not found", () => {
         assert.throws(() => require("/not_exists"), Error);
     });
+
+    const DUK_EXEC_SUCCESS = 0;
+    const DUK_EXEC_ERROR = 1;
+    interface EvalModCallerResult {
+        result: number; // DUK_EXEC_SUCCESS | DUK_EXEC_ERROR
+        retval: any;    // return value
+        pushed: number; // number of pushed value (0 or 1)
+    }
+    let eval_mod_caller: (obj: {}, type: number, data: string, len?: number) => EvalModCallerResult;
+    eval_mod_caller = (function(){return this})().__eval_mod_caller;
+
+    describe("dux_eval_module_file()", () => {
+        it("succeeds for existing file", () => {
+            let o = eval_mod_caller({}, 0, "/dummy/../mod1.js");
+            assert.equal(o.pushed, 1);
+            assert.notInstanceOf(o.retval, Error);
+        });
+        it("throws Error for non-existing file", () => {
+            assert.throws(() => eval_mod_caller({}, 0, "/non-existing"), Error);
+        });
+        it("succeeds relative load", () => {
+            let o = eval_mod_caller({}, 0, "/sub/mod3.js");
+            assert.equal(o.pushed, 1);
+            assert.notInstanceOf(o.retval, Error);
+        });
+    });
+    describe("dux_eval_module_file_noresult()", () => {
+        it("succeeds for existing file", () => {
+            let o = eval_mod_caller({}, 1, "/dummy/../mod1.js");
+            assert.equal(o.pushed, 0);
+        });
+        it("throws Error for non-existing file", () => {
+            assert.throws(() => eval_mod_caller({}, 1, "/non-existing"), Error);
+        });
+    });
+    describe("dux_peval_module_file()", () => {
+        it("returns DUK_EXEC_SUCCESS for existing file", () => {
+            let o = eval_mod_caller({}, 10, "/dummy/../mod1.js");
+            assert.equal(o.result, DUK_EXEC_SUCCESS);
+            assert.equal(o.pushed, 1);
+            assert.notInstanceOf(o.retval, Error);
+        });
+        it("return DUK_EXEC_ERROR for non-existing file", () => {
+            let o = eval_mod_caller({}, 10, "/non-existing");
+            assert.equal(o.result, DUK_EXEC_ERROR);
+            assert.equal(o.pushed, 1);
+            assert.instanceOf(o.retval, Error);
+        });
+    });
+    describe("dux_peval_module_file_noresult()", () => {
+        it("returns DUK_EXEC_SUCCESS for existing file", () => {
+            let o = eval_mod_caller({}, 11, "/dummy/../mod1.js");
+            assert.equal(o.result, DUK_EXEC_SUCCESS);
+            assert.equal(o.pushed, 0);
+        });
+        it("return DUK_EXEC_ERROR for non-existing file", () => {
+            let o = eval_mod_caller({}, 11, "/non-existing");
+            assert.equal(o.result, DUK_EXEC_ERROR);
+            assert.equal(o.pushed, 0);
+        });
+    });
 });
