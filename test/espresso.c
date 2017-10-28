@@ -153,7 +153,8 @@ done:
 			printf("OK\n\n");
 		} else {
 			++data->failed;
-			printf("NG (%s)\n\n", duk_safe_to_string(ctx, 0));
+			int details = duk_get_prop_string(ctx, 0, "stack");
+			printf("NG (%s)%s%s\n\n", duk_safe_to_string(ctx, 0), details ? "\n" : "", details ? duk_safe_to_string(ctx, 1) : "");
 		}
 	}
 
