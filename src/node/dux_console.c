@@ -160,8 +160,8 @@ DUK_LOCAL duk_ret_t global_console_getter(duk_context *ctx)
 	/* [ console ] */
 	duk_push_global_object(ctx);
 	/* [ console global ] */
-	duk_dup(ctx, 0);
 	duk_push_string(ctx, "console");
+	duk_dup(ctx, 0);
 	/* [ console global "console" console ] */
 	duk_def_prop(ctx, 1, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE);
 	/* [ console global ] */
