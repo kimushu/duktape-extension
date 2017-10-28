@@ -334,6 +334,7 @@ DUK_INTERNAL duk_ret_t modules_constructor(duk_context *ctx)
 
 DUK_INTERNAL duk_function_list_entry modules_proto_funcs[] = {
 	{ DUX_KEY_MODULES_REQUIRE, modules_require, 1 },
+	{ NULL, NULL, 0 }
 };
 
 /**
