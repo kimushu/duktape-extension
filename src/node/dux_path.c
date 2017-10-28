@@ -87,7 +87,7 @@ next:
 DUK_INTERNAL const char *dux_path_relative(duk_context *ctx, const char *from, const char *to)
 {
 	// FIXME
-	duk_error(ctx, DUK_RET_ERROR, "Not implemented");
+	(void)duk_error(ctx, DUK_RET_ERROR, "Not implemented");
 	return NULL;
 }
 
@@ -106,7 +106,7 @@ DUK_LOCAL duk_ret_t path_basename(duk_context *ctx)
 DUK_LOCAL duk_ret_t path_dirname(duk_context *ctx)
 {
 	/* [ path ] */
-	dux_path_dirname(ctx, duk_require_string(ctx, 0));
+	(void)dux_path_dirname(ctx, duk_require_string(ctx, 0));
 	/* [ path dirname ] */
 	return 1;
 }
@@ -114,7 +114,7 @@ DUK_LOCAL duk_ret_t path_dirname(duk_context *ctx)
 DUK_LOCAL duk_ret_t path_normalize(duk_context *ctx)
 {
 	/* [ path ] */
-	dux_path_normalize(ctx, duk_require_string(ctx, 0));
+	(void)dux_path_normalize(ctx, duk_require_string(ctx, 0));
 	/* [ path normalized ] */
 	return 1;
 }
@@ -122,7 +122,7 @@ DUK_LOCAL duk_ret_t path_normalize(duk_context *ctx)
 DUK_LOCAL duk_ret_t path_relative(duk_context *ctx)
 {
 	/* [ from to ] */
-	dux_path_relative(ctx, duk_require_string(ctx, 0), duk_require_string(ctx, 1));
+	(void)dux_path_relative(ctx, duk_require_string(ctx, 0), duk_require_string(ctx, 1));
 	/* [ from to relative ] */
 	return 1;
 }
@@ -145,15 +145,15 @@ DUK_LOCAL duk_errcode_t path_entry(duk_context *ctx)
 
 	duk_push_string(ctx, "delimiter");
 	duk_push_string(ctx, path_delimiter);
-	duk_def_prop(ctx, 2, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_HAVE_ENUMERABLE);
+	duk_def_prop(ctx, 2, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_SET_ENUMERABLE);
 
 	duk_push_string(ctx, "posix");
 	duk_dup(ctx, 2);
-	duk_def_prop(ctx, 2, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_HAVE_ENUMERABLE);
+	duk_def_prop(ctx, 2, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_SET_ENUMERABLE);
 	
 	duk_push_string(ctx, "sep");
 	duk_push_string(ctx, path_separator);
-	duk_def_prop(ctx, 2, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_HAVE_ENUMERABLE);
+	duk_def_prop(ctx, 2, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_SET_ENUMERABLE);
 
 	return DUK_ERR_NONE;
 }
