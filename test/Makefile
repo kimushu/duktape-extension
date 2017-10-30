@@ -25,7 +25,8 @@ endif
 
 .PHONY: test
 test: $(TARGET) tsc
-	./$< $(wildcard out/*.js) $(wildcard out/**/*.js)
+	#./$< $(wildcard out/*.js) $(wildcard out/**/*.js)
+	./$< out/work.js
 
 .PHONY: tsc
 tsc:
@@ -38,7 +39,7 @@ dux:
 	$(MAKE) -C ../src
 
 $(TARGET): $(DUK_SOURCE) $(DUX_SOURCE) $(C_SOURCES)
-	gcc -o $@ -I $(DUK_DIR) -I $(DUX_DIR) $(CFLAGS) $^ $(LIBS)
+	gcc -o $@ -I. -I$(DUK_DIR) -I$(DUX_DIR) $(CFLAGS) $^ $(LIBS)
 	nm $@ > $@.map
 
 .PHONY: clean

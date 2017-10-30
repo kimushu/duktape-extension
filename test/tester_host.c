@@ -1,8 +1,10 @@
 #include "duktape.h"
 #include "dukext.h"
+#include "../src/dux_internal.h"
 #include "espresso.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 static const char CJS_PROLOGUE[] = "(function(require,module,exports){";
 static const int CJS_PROLOGUE_LEN = sizeof(CJS_PROLOGUE) - 1;
@@ -63,6 +65,46 @@ static duk_ret_t eval_mod_caller(duk_context *ctx)
 	}
 	duk_set_top(ctx, 1);
 	return 1;
+}
+
+static void test_work_finalizer(duk_context *ctx, dux_work_t *req)
+{
+	unsigned char *buf = *((unsigned char **)req);
+	buf[1] = 1;
+}
+
+static duk_int_t test_work_cb(dux_work_t *req)
+{
+	unsigned char *buf = *((unsigned char **)req);
+	usleep(1000 * buf[0]);
+	if (dux_work_aborting(req)) {
+		return -1;
+	}
+	return buf[0];
+}
+
+static duk_int_t test_after_work_cb(duk_context *ctx, dux_work_t *req)
+{
+	/* [ int arg1 ... argN ] */
+	/*       ^func           */
+	duk_swap(ctx, 0, 1);
+	/* [ func(arg1) int arg2 ... argN ] */
+	return duk_pcall(ctx, duk_get_top(ctx) - 1);
+}
+
+static duk_ret_t queue_work_caller(duk_context *ctx)
+{
+	dux_work_t *req;
+	/* [ buf arg1 ... argN ] */
+	/*       ^func           */
+	unsigned char *buf = (unsigned char *)duk_require_buffer_data(ctx, 0, NULL);
+	duk_remove(ctx, 0);
+	/* [ arg1 ... argN ] */
+
+	req = dux_work_alloc(ctx, sizeof(unsigned char *), test_work_finalizer);
+	*((unsigned char **)req) = buf;
+	dux_queue_work(ctx, req, test_work_cb, test_after_work_cb, duk_get_top(ctx));
+	return 0;
 }
 
 static duk_ret_t test_file_reader(duk_context *ctx, const char *path)
@@ -141,6 +183,9 @@ int main(int argc, char *argv[])
 
 	duk_push_c_function(ctx, eval_mod_caller, 4);
 	duk_put_global_string(ctx, "__eval_mod_caller");
+
+	duk_push_c_function(ctx, queue_work_caller, DUK_VARARGS);
+	duk_put_global_string(ctx, "__queue_work_caller");
 
 	for (i = 1; i < argc; ++i) {
 		fp = fopen(argv[i], "rb");

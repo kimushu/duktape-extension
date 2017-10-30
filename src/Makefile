@@ -6,6 +6,7 @@ SOURCES = \
 	dux_basis.c \
 	dux_modules.c \
 	dux_thrpool.c \
+	dux_work.c \
 	dux_promise_simplified.c \
 	node/dux_node.c \
 		node/dux_events.c \
