@@ -20,7 +20,7 @@ DUK_LOCAL const char DUX_IPK_PERIDOT_SPI_PINS[] = DUX_IPK("bSPIPins");
  * Structures
  */
 
-typedef union spi_pins_t
+typedef union
 {
 	duk_uint_t uint;
 	struct
@@ -31,10 +31,11 @@ typedef union spi_pins_t
 		duk_int8_t miso;
 	};
 }
-spi_pins_t;
+peridot_spi_pins_t;
 
 typedef struct
 {
+	duk_int_t bitrate;
 	peridot_spi_pins_t pins;
 	peridot_spi_master_pfc_map *map;
 	alt_u32 clkdiv;
@@ -57,7 +58,7 @@ peridot_spicon_req_t;
 /*
  * Read pin configurations from ECMA object to spi_pins_t
  */
-DUK_LOCAL duk_ret_t peridot_spi_get_pins(duk_context *ctx, duk_idx_t index, spi_pins_t *pins)
+DUK_LOCAL duk_ret_t peridot_spi_get_pins(duk_context *ctx, duk_idx_t index, peridot_spi_pins_t *pins)
 {
 	pins->uint = 0;
 	pins->ss_n = dux_get_peridot_pin_by_key(ctx, index, "ss_n", "cs_n", NULL);
@@ -153,7 +154,7 @@ DUK_LOCAL duk_ret_t peridot_spicon_after_work_cb(duk_context *ctx, peridot_spico
 /*
  * Implementation of SPIConnection.prototype.{read,transfer,write}
  */
-DUK_LOCAL void peridot_spicon_transferRaw(duk_context *ctx, dux_spicon_data_peridot *data, peridot_spicon_data_t *data)
+DUK_LOCAL duk_ret_t peridot_spicon_transferRaw(duk_context *ctx, peridot_spicon_data_t *data)
 {
 	/* [ obj(writeData) int(readLen) uint(filler) func:3 ] */
 	duk_uint_t filler;
@@ -260,7 +261,7 @@ DUK_LOCAL duk_ret_t peridot_spicon_lsbFirst_setter(duk_context *ctx, peridot_spi
  */
 DUK_LOCAL duk_ret_t peridot_spicon_mode_getter(duk_context *ctx, peridot_spicon_data_t *data)
 {
-	duk_push_uint(ctx, (data->mode & PERIDOT_SPI_MASTER_MODE_MSK) >> PERIDOT_SPI_MASTER_MODE_OFST);
+	duk_push_uint(ctx, (data->flags & PERIDOT_SPI_MASTER_MODE_MSK) >> PERIDOT_SPI_MASTER_MODE_OFST);
 	return 1;
 }
 
@@ -374,7 +375,7 @@ DUK_LOCAL duk_ret_t peridot_spi_connect_body(duk_context *ctx, peridot_spi_pins_
 		}
 	}
 
-	result = peridot_spi_master_get_clkdiv(data->map, data->bitrate, &data->clkdiv);
+	result = peridot_spi_master_get_clkdiv(data->map->sp, data->bitrate, &data->clkdiv);
 	if (result != 0)
 	{
 		return DUK_RET_RANGE_ERROR;
@@ -392,7 +393,7 @@ DUK_LOCAL duk_ret_t peridot_spi_connect_body(duk_context *ctx, peridot_spi_pins_
  */
 DUK_LOCAL duk_ret_t peridot_spi_connect(duk_context *ctx)
 {
-	spi_pins_t pins;
+	peridot_spi_pins_t pins;
 	duk_ret_t result;
 
 	/* [ obj uint/undefined ] */
@@ -418,7 +419,7 @@ DUK_LOCAL duk_ret_t peridot_spi_connect(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t peridot_spi_proto_connect(duk_context *ctx)
 {
-	spi_pins_t pins;
+	peridot_spi_pins_t pins;
 
 	/* [ obj uint/undefined ] */
 	duk_push_this(ctx);
@@ -445,32 +446,32 @@ DUK_LOCAL duk_ret_t peridot_spi_proto_connect(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t peridot_spi_proto_pins_getter(duk_context *ctx)
 {
-	spi_pins_t pins;
+	peridot_spi_pins_t pins;
 
 	/* [  ] */
 	duk_push_this(ctx);
 	/* [ this ] */
-	duk_push_object(ctx);
-	/* [ this obj ] */
 	duk_get_prop_string(ctx, 0, DUX_IPK_PERIDOT_SPI_PINS);
-	/* [ this obj uint ] */
-	pins.uint = duk_require_uint(ctx, 2);
+	/* [ this uint ] */
+	duk_push_object(ctx);
+	/* [ this uint obj ] */
+	pins.uint = duk_require_uint(ctx, 1);
 	if (pins.ss_n >= 0)
 	{
 		duk_push_uint(ctx, pins.ss_n);
-		duk_put_prop_string(ctx, 1, "ss_n");
+		duk_put_prop_string(ctx, 2, "ss_n");
 	}
 	duk_push_uint(ctx, pins.sclk);
-	duk_put_prop_string(ctx, 1, "sclk");
+	duk_put_prop_string(ctx, 2, "sclk");
 	if (pins.mosi >= 0)
 	{
 		duk_push_uint(ctx, pins.mosi);
-		duk_put_prop_string(ctx, 1, "mosi");
+		duk_put_prop_string(ctx, 2, "mosi");
 	}
 	if (pins.miso >= 0)
 	{
 		duk_push_uint(ctx, pins.miso);
-		duk_put_prop_string(ctx, 1, "miso");
+		duk_put_prop_string(ctx, 2, "miso");
 	}
 	return 1; /* return obj */
 }

@@ -41,17 +41,17 @@ DUK_LOCAL duk_ret_t spicon_constructor(duk_context *ctx)
 	return 0; /* return this */
 }
 
-DUK_LOCAL duk_ret_t spicon_proto_common(duk_context *ctx, void **pdata)
+DUK_LOCAL const dux_spicon_functions *spicon_proto_common(duk_context *ctx, void **pdata)
 {
 	duk_idx_t idx;
-	dux_spicon_functions *funcs;
+	const dux_spicon_functions *funcs;
 
 	idx = duk_get_top(ctx);
 	duk_push_this(ctx);
 	duk_get_prop_string(ctx, idx, DUX_IPK_SPICON_DATA);
 	duk_get_prop_string(ctx, idx, DUX_IPK_SPICON_FUNCS);
 	*pdata = duk_get_buffer_data(ctx, idx + 1, NULL);
-	funcs = (dux_spicon_functions *)duk_get_pointer(ctx, idx + 2);
+	funcs = (const dux_spicon_functions *)duk_get_pointer(ctx, idx + 2);
 	duk_pop_3(ctx);
 	return funcs;
 }
@@ -63,10 +63,13 @@ DUK_LOCAL duk_ret_t spicon_proto_exchange(duk_context *ctx)
 {
 	/* [ obj(writeData) func ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	duk_push_uint(ctx, 0);
+	/* [ obj(writeData) func uint(filler) ] */
 	duk_push_true(ctx);
-	duk_swap(ctx, 1, 2);
-	/* [ obj(writeData) true func ] */
+	/* [ obj(writeData) func uint(filler) true(readLen):3 ] */
+	duk_swap(ctx, 1, 3);
+	/* [ obj(writeData) true(readLen) uint(filler) func:3 ] */
 	return (*funcs->transferRaw)(ctx, data);
 }
 
@@ -79,8 +82,9 @@ DUK_LOCAL duk_ret_t spicon_proto_read(duk_context *ctx)
 	/* [ uint(readLen) func undefined ] (without filler) */
 	duk_uint_t filler;
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
-	duk_uint_t readLen = duk_require_uint(ctx, 0);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+
+	duk_require_uint(ctx, 0);
 
 	if (duk_is_callable(ctx, 1))
 	{
@@ -114,9 +118,10 @@ DUK_LOCAL duk_ret_t spicon_proto_transfer(duk_context *ctx)
 	/* [ obj(writeData) uint(readLen) func undefined:3 ] (without filler) */
 	duk_uint_t filler;
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
-	duk_uint_t readLen = duk_require_uint(ctx, 1);
-	
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+
+	duk_require_uint(ctx, 1);
+
 	if (duk_is_callable(ctx, 2))
 	{
 		// Without filler
@@ -145,7 +150,7 @@ DUK_LOCAL duk_ret_t spicon_proto_write(duk_context *ctx)
 {
 	/* [ obj(writeData) func ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	duk_push_uint(ctx, 0);
 	/* [ obj(writeData) func uint(filler) ] */
 	duk_push_uint(ctx, 0);
@@ -162,7 +167,7 @@ DUK_LOCAL duk_ret_t spicon_proto_bitrate_getter(duk_context *ctx)
 {
 	/* [  ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	return (*funcs->bitrate_getter)(ctx, data);
 }
 
@@ -173,7 +178,7 @@ DUK_LOCAL duk_ret_t spicon_proto_bitrate_setter(duk_context *ctx)
 {
 	/* [ uint ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	return (*funcs->bitrate_setter)(ctx, data);
 }
 
@@ -184,8 +189,7 @@ DUK_LOCAL duk_ret_t spicon_proto_lsbFirst_getter(duk_context *ctx)
 {
 	/* [  ] */
 	void *data;
-	duk_ret_t result;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	return (*funcs->lsbFirst_getter)(ctx, data);
 }
 
@@ -196,7 +200,7 @@ DUK_LOCAL duk_ret_t spicon_proto_lsbFirst_setter(duk_context *ctx)
 {
 	/* [ boolean ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	return (*funcs->lsbFirst_setter)(ctx, data);
 }
 
@@ -207,7 +211,7 @@ DUK_LOCAL duk_ret_t spicon_proto_mode_getter(duk_context *ctx)
 {
 	/* [  ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	return (*funcs->mode_getter)(ctx, data);
 }
 
@@ -219,7 +223,7 @@ DUK_LOCAL duk_ret_t spicon_proto_mode_setter(duk_context *ctx)
 	/* [ uint ] */
 	void *data;
 	dux_require_int_range(ctx, 0, 0, 3);
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	return (*funcs->mode_setter)(ctx, data);
 }
 
@@ -231,7 +235,7 @@ DUK_LOCAL duk_ret_t spicon_proto_msbFirst_getter(duk_context *ctx)
 	/* [  ] */
 	void *data;
 	duk_ret_t result;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	result = (*funcs->lsbFirst_getter)(ctx, data);
 	if (result == 1)
 	{
@@ -247,7 +251,7 @@ DUK_LOCAL duk_ret_t spicon_proto_msbFirst_setter(duk_context *ctx)
 {
 	/* [ boolean ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	duk_push_boolean(ctx, !duk_require_boolean(ctx, 0));
 	duk_replace(ctx, 0);
 	return (*funcs->lsbFirst_setter)(ctx, data);
@@ -260,7 +264,7 @@ DUK_LOCAL duk_ret_t spicon_proto_slaveSelect_getter(duk_context *ctx)
 {
 	/* [  ] */
 	void *data;
-	dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
+	const dux_spicon_functions *funcs = spicon_proto_common(ctx, &data);
 	return (*funcs->slaveSelect_getter)(ctx, data);
 }
 

@@ -26,17 +26,17 @@ DUK_LOCAL duk_ret_t i2ccon_constructor(duk_context *ctx)
 	return 0; /* return this */
 }
 
-DUK_LOCAL dux_i2ccon_functions *i2ccon_proto_common(duk_context *ctx, void **pdata)
+DUK_LOCAL const dux_i2ccon_functions *i2ccon_proto_common(duk_context *ctx, void **pdata)
 {
 	duk_idx_t idx;
-	dux_i2ccon_functions *funcs;
+	const dux_i2ccon_functions *funcs;
 
 	idx = duk_get_top(ctx);
 	duk_push_this(ctx);
 	duk_get_prop_string(ctx, idx, DUX_IPK_I2CCON_DATA);
 	duk_get_prop_string(ctx, idx, DUX_IPK_I2CCON_FUNCS);
 	*pdata = duk_get_buffer_data(ctx, idx + 1, NULL);
-	funcs = (dux_i2ccon_functions *)duk_get_pointer(ctx, idx + 2);
+	funcs = (const dux_i2ccon_functions *)duk_get_pointer(ctx, idx + 2);
 	duk_pop_3(ctx);
 	return funcs;
 }
@@ -48,7 +48,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_read(duk_context *ctx)
 {
 	/* [ uint func ] */
 	void *data;
-	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	const dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
 
 	duk_push_undefined(ctx);
 	/* [ uint func undefined ] */
@@ -64,7 +64,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_transfer(duk_context *ctx)
 {
 	/* [ obj uint func ] */
 	void *data;
-	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	const dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
 
 	return (*funcs->transfer)(ctx, data);
 }
@@ -76,7 +76,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_write(duk_context *ctx)
 {
 	/* [ obj func ] */
 	void *data;
-	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	const dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
 
 	duk_push_uint(ctx, 0);
 	/* [ obj func 0 ] */
@@ -92,7 +92,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_getter(duk_context *ctx)
 {
 	/* [  ] */
 	void *data;
-	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	const dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
 	return (*funcs->bitrate_getter)(ctx, data);
 }
 
@@ -103,7 +103,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
 {
 	/* [ uint ] */
 	void *data;
-	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	const dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
 	return (*funcs->bitrate_setter)(ctx, data);
 }
 
@@ -113,7 +113,7 @@ DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
 DUK_LOCAL duk_ret_t i2ccon_proto_slaveAddress_getter(duk_context *ctx)
 {
 	void *data;
-	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	const dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
 	return (*funcs->slaveAddress_getter)(ctx, data);
 }
 
