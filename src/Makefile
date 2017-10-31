@@ -5,7 +5,6 @@ TARGETS = $(addprefix $(DESTDIR)/,dukext.c dukext.h dukext.d.ts)
 SOURCES = \
 	dux_basis.c \
 	dux_modules.c \
-	dux_thrpool.c \
 	dux_work.c \
 	dux_promise_simplified.c \
 	node/dux_node.c \

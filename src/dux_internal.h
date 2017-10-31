@@ -24,7 +24,6 @@ extern "C" {
 #include "dux_basis.h"
 #include "dux_modules.h"
 #include "dux_promise.h"
-#include "dux_thrpool.h"
 #include "dux_work.h"
 #include "node/dux_node.h"
 #include "hw/dux_hardware.h"

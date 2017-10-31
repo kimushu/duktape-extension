@@ -30,7 +30,6 @@ DUK_EXTERNAL duk_errcode_t dux_initialize(duk_context *ctx, const dux_file_acces
 	return dux_invoke_initializers(ctx,
 		DUX_INIT_MODULES
 		DUX_INIT_PROMISE
-		DUX_INIT_THRPOOL
 		DUX_INIT_WORK
 		DUX_INIT_NODE
 		DUX_INIT_HARDWARE
@@ -51,7 +50,6 @@ DUK_EXTERNAL duk_bool_t dux_tick(duk_context *ctx)
 	result = dux_invoke_tick_handlers(ctx,
 		DUX_TICK_MODULES
 		DUX_TICK_PROMISE
-		DUX_TICK_THRPOOL
 		DUX_TICK_WORK
 		DUX_TICK_NODE
 		DUX_TICK_HARDWARE
