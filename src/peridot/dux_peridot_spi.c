@@ -1,30 +1,3 @@
-/*
- * ECMA objects:
- *    class PeridotSPI {
- *      constructor({sclk: <uint> pin [,mosi: <uint> pin] [,miso: <uint> pin]}) {
- *      }
- *
- *      static connect({ss_m: <uint> pin, sclk: <uint> pin
- *                      [,mosi: <uint> pin] [,miso: <uint> pin]},
- *                     <uint> bitrate = SPI_DEFAULT_BITRATE) {
- *        return <SPIConnection>;
- *      }
- *
- *      connect(<uint> ss_n_pin,
- *              <uint> bitrate = SPI_DEFAULT_BITRATE) {
- *        return <SPIConnection>;
- *      }
- *    }
- *    global.Peridot.SPI = PeridotSPI;
- *
- * Internal data structure:
- *    PeridotSPI.[[DUX_IPK_PERIDOT_SPI_POOLS]] = new Array(
- *      thrpool1, ..., thrpoolN
- *    );
- *    thrpoolX.[[DUX_IPK_PERIDOT_SPI_DRIVER]] = <pointer> map;
- *    (new PeridotSPI).[[DUX_IPK_PERIDOT_SPI_DRIVER]] = <pointer> map;
- *    (new PeridotSPI).[[DUX_IPK_PERIDOT_SPI_PINS]] = <uint> pins;
- */
 #if defined(DUX_USE_BOARD_PERIDOT)
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_SPI)
 #include "../dux_internal.h"
@@ -38,24 +11,10 @@
  * Constants
  */
 
-#define SPI_DEFAULT_BITRATE	12500000
+#define PERIDOT_SPI_DEFAULT_BITRATE 1000000
 
-DUK_LOCAL const char DUX_IPK_PERIDOT_SPI_POOLS[] = DUX_IPK("bSPIPools");
+DUK_LOCAL const char DUX_IPK_PERIDOT_SPI_SPICON[] = DUX_IPK("bSPICon");
 DUK_LOCAL const char DUX_IPK_PERIDOT_SPI_PINS[] = DUX_IPK("bSPIPins");
-DUK_LOCAL const char DUX_IPK_PERIDOT_SPI_DRIVER[] = DUX_IPK("bSPIDrv");
-
-enum
-{
-	SPI_BLKIDX_DATA = 0,
-	SPI_BLKIDX_CLKDIV,
-	SPI_BLKIDX_WRITEDATA,
-	SPI_BLKIDX_READBUF,
-	SPI_BLKIDX_READSKIP,
-	SPI_BLKIDX_FLAGS,
-	SPI_BLKIDX_CALLBACK,
-	SPI_BLKIDX_THIS,
-	SPI_NUM_BLOCKS,
-};
 
 /*
  * Structures
@@ -74,19 +33,31 @@ typedef union spi_pins_t
 }
 spi_pins_t;
 
-typedef struct dux_spicon_data_peridot
+typedef struct
 {
-	dux_spicon_data common;
-	spi_pins_t pins;
+	peridot_spi_pins_t pins;
 	peridot_spi_master_pfc_map *map;
 	alt_u32 clkdiv;
+	alt_u32 flags;
 }
-dux_spicon_data_peridot;
+peridot_spicon_data_t;
+
+typedef struct
+{
+	peridot_spicon_data_t data;
+	duk_uint_t writeLength;
+	const void *writeData;
+	duk_uint_t readSkip;
+	duk_uint_t readLength;
+	void *readData;
+	duk_uint_t flags;
+}
+peridot_spicon_req_t;
 
 /*
  * Read pin configurations from ECMA object to spi_pins_t
  */
-DUK_LOCAL duk_ret_t spi_get_pins(duk_context *ctx, duk_idx_t index, spi_pins_t *pins)
+DUK_LOCAL duk_ret_t peridot_spi_get_pins(duk_context *ctx, duk_idx_t index, spi_pins_t *pins)
 {
 	pins->uint = 0;
 	pins->ss_n = dux_get_peridot_pin_by_key(ctx, index, "ss_n", "cs_n", NULL);
@@ -112,26 +83,24 @@ DUK_LOCAL duk_ret_t spi_get_pins(duk_context *ctx, duk_idx_t index, spi_pins_t *
 	return 0;
 }
 
-/*
- * Thread pool worker for SPI transfer
- */
-DUK_LOCAL duk_int_t spicon_worker(const dux_thrpool_block *blocks, duk_size_t num_blocks)
+DUK_LOCAL void peridot_spicon_finalize(duk_context *ctx, peridot_spicon_req_t *req)
 {
-	dux_spicon_data_peridot *data;
+	duk_free(ctx, (void *)req->writeData);
+	duk_free(ctx, req->readData);
+}
+
+/*
+ * Worker for SPI transfer
+ */
+DUK_LOCAL duk_int_t peridot_spicon_work_cb(peridot_spicon_req_t *req)
+{
 	int result;
 
-	if (num_blocks != SPI_NUM_BLOCKS)
-	{
-		return -EBADF;
-	}
-
-	data = (dux_spicon_data_peridot *)blocks[SPI_BLKIDX_DATA].pointer;
-
 	result = peridot_spi_master_configure_pins(
-			data->map,
-			data->pins.sclk,
-			data->pins.mosi,
-			data->pins.miso,
+			req->data.map,
+			req->data.pins.sclk,
+			req->data.pins.mosi,
+			req->data.pins.miso,
 			0);
 	if (result < 0)
 	{
@@ -139,280 +108,342 @@ DUK_LOCAL duk_int_t spicon_worker(const dux_thrpool_block *blocks, duk_size_t nu
 	}
 
 	result = peridot_spi_master_transfer(
-			data->map->sp,
-			data->pins.ss_n,
-			blocks[SPI_BLKIDX_CLKDIV].uint,
-			blocks[SPI_BLKIDX_WRITEDATA].length,
-			blocks[SPI_BLKIDX_WRITEDATA].pointer,
-			blocks[SPI_BLKIDX_READSKIP].uint,
-			blocks[SPI_BLKIDX_READBUF].length,
-			blocks[SPI_BLKIDX_READBUF].pointer,
-			blocks[SPI_BLKIDX_FLAGS].uint);
+			req->data.map->sp,
+			req->data.pins.ss_n,
+			req->data.clkdiv,
+			req->writeLength,
+			req->writeData,
+			req->readSkip,
+			req->readLength,
+			req->readData,
+			req->flags);
 
 	return result;
 }
 
 /*
- * Thread pool completer for SPI transfer
+ * After worker for SPI transfer
  */
-DUK_LOCAL duk_ret_t spicon_completer(duk_context *ctx)
+DUK_LOCAL duk_ret_t peridot_spicon_after_work_cb(duk_context *ctx, peridot_spicon_req_t *req)
 {
-	duk_idx_t nargs;
+	/* [ int callback ] */
+	void *buf;
+	duk_int_t result = duk_get_int_default(ctx, 0, -1);
 
-	/* [ job int ] */
-	duk_int_t ret = duk_require_int(ctx, 1);
-	duk_get_prop_index(ctx, 0, SPI_BLKIDX_CALLBACK);
-	/* [ job int func ] */
-	duk_require_callable(ctx, 2);
-
-	if (ret == 0)
-	{
-		/* Transfer succeeded */
-		duk_push_undefined(ctx);
-		/* [ job int func undefined ] */
-		duk_get_prop_index(ctx, 0, SPI_BLKIDX_READBUF);
-		/* [ job int func undefined buf:4 ] */
-		if (!duk_is_null_or_undefined(ctx, 4))
-		{
-			duk_push_buffer_object(ctx, 4,
-					0, duk_get_length(ctx, 4),
-					DUK_BUFOBJ_NODEJS_BUFFER);
-			/* [ job int func undefined buf:4 bufobj(Buffer):5 ] */
-			duk_remove(ctx, 4);
-			/* [ job int func undefined bufobj(Buffer):4 ] */
-		}
-		nargs = 2;
-	}
-	else
+	if (result != 0)
 	{
 		/* Transfer failed */
-		duk_push_error_object(ctx, DUK_ERR_ERROR, "SPI transfer failed (%d)", ret);
-		/* [ job int func err ] */
-		nargs = 1;
+		duk_push_error_object(ctx, DUK_ERR_ERROR, "SPI transfer failed (result=%d)", result);
+		/* [ int callback err ] */
+		return duk_pcall(ctx, 1);
 	}
 
-	duk_call(ctx, nargs);
-	/* [ job int retval ] */
-
-	return 0;
+	buf = duk_push_fixed_buffer(ctx, req->readLength);
+	/* [ int callback buf ] */
+	memcpy(buf, req->readData, req->readLength);
+	duk_push_buffer_object(ctx, 2, 0, req->readLength, DUK_BUFOBJ_NODEJS_BUFFER);
+	/* [ int callback buf bufobj:3 ] */
+	duk_push_undefined(ctx);
+	/* [ int callback buf bufobj:3 undefined:4 ] */
+	duk_replace(ctx, 2);
+	/* [ int callback undefined bufobj:3 ] */
+	return duk_pcall(ctx, 2);
 }
 
 /*
  * Implementation of SPIConnection.prototype.{read,transfer,write}
  */
-DUK_LOCAL void spicon_transfer(duk_context *ctx, dux_spicon_data_peridot *data,
-		duk_size_t read_skip, duk_uint_t filler)
+DUK_LOCAL void peridot_spicon_transferRaw(duk_context *ctx, dux_spicon_data_peridot *data, peridot_spicon_data_t *data)
 {
-	duk_idx_t job_idx;
+	/* [ obj(writeData) int(readLen) uint(filler) func:3 ] */
+	duk_uint_t filler;
+	peridot_spicon_req_t *req;
+	req = (peridot_spicon_req_t *)dux_work_alloc(ctx, sizeof(*req),
+			(dux_work_finalizer)peridot_spicon_finalize);
+	memcpy(&req->data, data, sizeof(*data));
 
-	/* [ ... func:-5 writedata:-4 readbuf:-3 this:-2 thrpool:-1 ] */
-	duk_swap_top(ctx, -5);
-	/* [ ... thrpool:-5 writedata:-4 readbuf:-3 this:-2 func:-1 ] */
-	duk_push_array(ctx);
-	/* [ ... thrpool:-6 writedata:-5 readbuf:-4 this:-3 func:-2 arr:-1 ] */
-	job_idx = duk_normalize_index(ctx, -5);
-	duk_swap_top(ctx, job_idx);
-	/* [ ... thrpool:-6 arr:-5(job_idx) readbuf:-4 this:-3 func:-2 writedata:-1 ] */
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_WRITEDATA);
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_CALLBACK);
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_THIS);
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_READBUF);
-	/* [ ... thrpool:-2 arr:-1(job_idx) ] */
-	duk_push_pointer(ctx, data);
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_DATA);
-	duk_push_uint(ctx, data->clkdiv);
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_CLKDIV);
-	duk_push_uint(ctx, read_skip);
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_READSKIP);
-	duk_push_uint(ctx,
+	req->writeData = dux_alloc_as_byte_buffer(ctx, 0, &req->writeLength);
+	if (duk_is_boolean(ctx, 1))
+	{
+		// Full-duplex (Write and read)
+		req->readSkip = req->writeLength;
+		req->readLength = req->writeLength;
+	}
+	else
+	{
+		// Half-duplex (Write, then read)
+		req->readSkip = req->writeLength;
+		req->readLength = duk_require_uint(ctx, 1);
+	}
+	if (req->readLength > 0)
+	{
+		req->readData = duk_alloc(ctx, req->readLength);
+		if (!req->readData)
+		{
+			return duk_generic_error(ctx, "Cannot allocate read buffer (length=%u)", req->readLength);
+		}
+	}
+	filler = duk_require_uint(ctx, 2);
+	req->flags =
 			((filler << PERIDOT_SPI_MASTER_FILLER_OFST) &
-				PERIDOT_SPI_MASTER_FILLER_MSK) |
-			((data->common.mode << PERIDOT_SPI_MASTER_MODE_OFST) &
-				PERIDOT_SPI_MASTER_MODE_MSK) |
-			(data->common.lsbFirst ? PERIDOT_SPI_MASTER_LSBFIRST : 0));
-	duk_put_prop_index(ctx, job_idx, SPI_BLKIDX_FLAGS);
-	/* [ ... thrpool:-2 arr:-1 ] */
-	dux_thrpool_queue(ctx, -2, spicon_worker, spicon_completer);
-	/* [ ... thrpool:-1 ] */
-	duk_pop(ctx);
-	/* [ ... ] */
+				PERIDOT_SPI_MASTER_FILLER_MSK) | data->flags;
+
+	dux_promise_new_with_node_callback(ctx, 3);
+	/* [ obj(writeData) uint(readLen) uint(filler) func:3 promise|undefined:4 ] */
+	duk_swap(ctx, 3, 4);
+	/* [ obj(writeData) uint(readLen) uint(filler) promise|undefined:3 func:4 ] */
+	dux_queue_work(ctx, (dux_work_t *)req, (dux_work_cb)peridot_spicon_work_cb,
+			(dux_after_work_cb)peridot_spicon_after_work_cb, 1);
+	/* [ obj(writeData) uint(readLen) uint(filler) promise|undefined:3 ] */
+	return 1;
 }
 
 /*
- * Implementation for bitrate change
+ * Getter of bitrate property
  */
-DUK_LOCAL duk_ret_t spicon_update_bitrate(duk_context *ctx, dux_spicon_data_peridot *data)
+DUK_LOCAL duk_ret_t peridot_spicon_bitrate_getter(duk_context *ctx, peridot_spicon_data_t *data)
 {
+	duk_push_int(ctx, data->bitrate);
+	return 1;
+}
+
+/*
+ * Setter of bitrate property
+ */
+DUK_LOCAL duk_ret_t peridot_spicon_bitrate_setter(duk_context *ctx, peridot_spicon_data_t *data)
+{
+	/* [ int ] */
 	duk_ret_t result;
+	duk_int_t bitrate;
 	alt_u32 clkdiv;
 
-	result = peridot_spi_master_get_clkdiv(data->map->sp,
-				data->common.bitrate, &clkdiv);
+	bitrate = duk_require_int(ctx, 0);
+	result = peridot_spi_master_get_clkdiv(data->map->sp, bitrate, &clkdiv);
 	if (result != 0)
 	{
 		return DUK_RET_RANGE_ERROR;
 	}
 
+	data->bitrate = bitrate;
 	data->clkdiv = clkdiv;
 	return 0;
 }
 
 /*
- * Common implementation of PeridotSPI.(prototype.)connect
+ * Getter of lsbFirst property
  */
-DUK_LOCAL duk_ret_t spi_connect_body(duk_context *ctx, spi_pins_t *pins)
+DUK_LOCAL duk_ret_t peridot_spicon_lsbFirst_getter(duk_context *ctx, peridot_spicon_data_t *data)
 {
-	dux_spicon_data_peridot *data;
-	duk_uint_t bitrate;
-	peridot_spi_master_pfc_map *map;
+	duk_push_boolean(ctx, (data->flags & PERIDOT_SPI_MASTER_LSBFIRST));
+	return 1;
+}
 
-	/* [ any uint(bitrate)/undefined this ] */
-	if (duk_is_null_or_undefined(ctx, 1))
+/*
+ * Setter of lsbFirst property
+ */
+DUK_LOCAL duk_ret_t peridot_spicon_lsbFirst_setter(duk_context *ctx, peridot_spicon_data_t *data)
+{
+	/* [ boolean ] */
+	if (duk_require_boolean(ctx, 0))
 	{
-		bitrate = SPI_DEFAULT_BITRATE;
+		data->flags |= PERIDOT_SPI_MASTER_LSBFIRST;
 	}
 	else
 	{
-		bitrate = duk_require_uint(ctx, 1);
+		data->flags &= ~PERIDOT_SPI_MASTER_LSBFIRST;
 	}
-
-	duk_get_prop_string(ctx, 2, DUX_IPK_PERIDOT_SPI_POOLS);
-	/* [ any uint/undefined this arr ] */
-	duk_swap(ctx, 0, 3);
-	/* [ arr uint/undefined this any ] */
-	duk_set_top(ctx, 1);
-	/* [ arr ] */
-
-	duk_get_global_string(ctx, "require");
-	duk_push_string(ctx, "hardware");
-	duk_call(ctx, 1);
-	/* [ arr hardware ] */
-	duk_get_prop_string(ctx, 1, "SPIConnection");
-	/* [ arr hardware constructor ] */
-	duk_remove(ctx, 1);
-	/* [ arr constructor ] */
-	duk_push_fixed_buffer(ctx, sizeof(*data));
-	/* [ arr constructor buf ] */
-	data = (dux_spicon_data_peridot *)duk_get_buffer(ctx, -1, NULL);
-
-	data->common.transfer =
-		(void (*)(duk_context *, dux_spicon_data *, duk_size_t, duk_uint_t))spicon_transfer;
-	data->common.update_bitrate =
-		(duk_ret_t (*)(duk_context *, dux_spicon_data *))spicon_update_bitrate;
-	data->common.bitrate = bitrate;
-	data->pins.uint = pins->uint;
-	data->map = NULL;
-
-	duk_enum(ctx, 0, DUK_ENUM_ARRAY_INDICES_ONLY);
-	/* [ arr constructor buf enum ] */
-	while (duk_next(ctx, 3, 1))
-	{
-		/* [ arr constructor buf enum key:4 thrpool:5 ] */
-		duk_get_prop_string(ctx, 5, DUX_IPK_PERIDOT_SPI_DRIVER);
-		/* [ arr constructor buf enum key:4 thrpool:5 pointer:6 ] */
-		map = (peridot_spi_master_pfc_map *)duk_get_pointer(ctx, 6);
-		duk_pop(ctx);
-		/* [ arr constructor buf enum key:4 thrpool:5 ] */
-
-		if ((map) &&
-			peridot_spi_master_configure_pins(map,
-					pins->sclk, pins->mosi, pins->miso, 1) == 0)
-		{
-			data->map = map;
-			duk_swap(ctx, 3, 5);
-			/* [ arr constructor buf thrpool key:4 enum:5 ] */
-			duk_set_top(ctx, 4);
-			/* [ arr constructor buf thrpool ] */
-			duk_new(ctx, 2);
-			/* [ arr obj ] */
-			return 1; /* return obj */
-		}
-
-		duk_pop_2(ctx);
-		/* [ arr constructor buf enum ] */
-	}
-
-	(void)duk_generic_error(ctx,
-			"no driver supports (sclk=%u,mosi=%d,miso=%d)",
-			pins->sclk, pins->mosi, pins->miso);
-	/* unreachable */
 	return 0;
 }
 
 /*
+ * Getter of mode property
+ */
+DUK_LOCAL duk_ret_t peridot_spicon_mode_getter(duk_context *ctx, peridot_spicon_data_t *data)
+{
+	duk_push_uint(ctx, (data->mode & PERIDOT_SPI_MASTER_MODE_MSK) >> PERIDOT_SPI_MASTER_MODE_OFST);
+	return 1;
+}
+
+/*
+ * Setter of mode property
+ */
+DUK_LOCAL duk_ret_t peridot_spicon_mode_setter(duk_context *ctx, peridot_spicon_data_t *data)
+{
+	/* [ uint ] */
+	duk_uint_t mode = duk_require_uint(ctx, 0);
+	data->flags &= ~PERIDOT_SPI_MASTER_MODE_MSK;
+	data->flags |= (mode << PERIDOT_SPI_MASTER_MODE_OFST) & PERIDOT_SPI_MASTER_MODE_MSK;
+	return 0;
+}
+
+/*
+ * Getter of slaveSelect property
+ */
+DUK_LOCAL duk_ret_t peridot_spicon_slaveSelect_getter(duk_context *ctx, peridot_spicon_data_t *data)
+{
+	duk_push_uint(ctx, data->pins.ss_n);
+	return 1;
+}
+
+/*
+ * Function table for PERIDOT based SPIConnection
+ */
+DUK_LOCAL const dux_spicon_functions peridot_spicon_functions = {
+	.transferRaw = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_transferRaw,
+	.bitrate_getter = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_bitrate_getter,
+	.bitrate_setter = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_bitrate_setter,
+	.lsbFirst_getter = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_lsbFirst_getter,
+	.lsbFirst_setter = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_lsbFirst_setter,
+	.mode_getter = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_mode_getter,
+	.mode_setter = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_mode_setter,
+	.slaveSelect_getter = (duk_ret_t (*)(duk_context *, void *))peridot_spicon_slaveSelect_getter,
+};
+
+/*
  * Entry of PeridotSPI constructor
  */
-DUK_LOCAL duk_ret_t spi_constructor(duk_context *ctx)
+DUK_LOCAL duk_ret_t peridot_spi_constructor(duk_context *ctx)
 {
-	spi_pins_t pins;
+	peridot_spi_pins_t pins;
 	duk_ret_t result;
 
 	/* [ obj ] */
-	result = spi_get_pins(ctx, 0, &pins);
+	result = peridot_spi_get_pins(ctx, 0, &pins);
 	if (result != 0)
 	{
 		return result;
 	}
 	pins.ss_n = -1;
 
-	duk_push_current_function(ctx);
 	duk_push_this(ctx);
-	/* [ obj constructor this ] */
-
+	/* [ obj this ] */
 	duk_push_uint(ctx, pins.uint);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PERIDOT_SPI_PINS);
-
-	duk_get_prop_string(ctx, 1, DUX_IPK_PERIDOT_SPI_POOLS);
-	duk_put_prop_string(ctx, 2, DUX_IPK_PERIDOT_SPI_POOLS);
-
+	/* [ obj this uint ] */
+	duk_put_prop_string(ctx, 1, DUX_IPK_PERIDOT_SPI_PINS);
+	/* [ obj this ] */
 	return 0; /* return this */
+}
+
+/*
+ * Body of PeridotSPI.connect() / PeridotSPI.prototype.connect()
+ */
+DUK_LOCAL duk_ret_t peridot_spi_connect_body(duk_context *ctx, peridot_spi_pins_t *pins)
+{
+	/* [ con_constructor uint/undefined ] */
+	extern peridot_spi_master_pfc_map *const peridot_spi_drivers[];
+	peridot_spicon_data_t *data;
+	duk_int_t bitrate;
+	int map_idx;
+	int result;
+
+	// Get bitrate
+	if (duk_is_null_or_undefined(ctx, 1))
+	{
+		bitrate = PERIDOT_SPI_DEFAULT_BITRATE;
+	}
+	else
+	{
+		bitrate = duk_require_uint(ctx, 1);
+	}
+
+	duk_pop(ctx);
+	/* [ con_constructor ] */
+
+	data = (peridot_spicon_data_t *)duk_push_fixed_buffer(ctx, sizeof(*data));
+	/* [ con_constructor buf ] */
+	data->bitrate = bitrate;
+	data->pins.uint = pins->uint;
+
+	// Lookup driver
+	for (map_idx = 0;; ++map_idx)
+	{
+		peridot_spi_master_pfc_map *map;
+		map = peridot_spi_drivers[map_idx];
+		if (!map)
+		{
+			// No more drivers
+			return duk_generic_error(ctx, "No SPI driver (SS_N=%d, SCLK=%d, MOSI=%d, MISO=%d)",
+				pins->ss_n, pins->sclk, pins->mosi, pins->miso);
+		}
+		
+		if (peridot_spi_master_configure_pins(map, pins->sclk, pins->mosi, pins->miso, 1) == 0)
+		{
+			// Found
+			data->map = map;
+			break;
+		}
+	}
+
+	result = peridot_spi_master_get_clkdiv(data->map, data->bitrate, &data->clkdiv);
+	if (result != 0)
+	{
+		return DUK_RET_RANGE_ERROR;
+	}
+
+	duk_push_pointer(ctx, (void *)&peridot_spicon_functions);
+	/* [ con_constructor buf ] */
+	duk_new(ctx, 2);
+	/* [ instance ] */
+	return 1;
 }
 
 /*
  * Entry of PeridotSPI.connect()
  */
-DUK_LOCAL duk_ret_t spi_connect(duk_context *ctx)
+DUK_LOCAL duk_ret_t peridot_spi_connect(duk_context *ctx)
 {
 	spi_pins_t pins;
 	duk_ret_t result;
 
 	/* [ obj uint/undefined ] */
-	result = spi_get_pins(ctx, 0, &pins);
+	result = peridot_spi_get_pins(ctx, 0, &pins);
 	if (result != 0)
 	{
 		return result;
 	}
 	/* [ obj uint/undefined ] */
 	duk_push_this(ctx);
-	/* [ obj uint/undefined this ] */
-
-	return spi_connect_body(ctx, &pins);
+	/* [ obj uint/undefined constructor ] */
+	duk_get_prop_string(ctx, 2, DUX_IPK_PERIDOT_SPI_SPICON);
+	/* [ obj uint/undefined constructor con_constructor:3 ] */
+	duk_replace(ctx, 0);
+	/* [ con_constructor uint/undefined constructor ] */
+	duk_pop(ctx);
+	/* [ con_constructor uint/undefined ] */
+	return peridot_spi_connect_body(ctx, &pins);
 }
 
 /*
  * Entry of PeridotSPI.prototype.connect()
  */
-DUK_LOCAL duk_ret_t spi_proto_connect(duk_context *ctx)
+DUK_LOCAL duk_ret_t peridot_spi_proto_connect(duk_context *ctx)
 {
 	spi_pins_t pins;
 
 	/* [ obj uint/undefined ] */
 	duk_push_this(ctx);
 	/* [ obj uint/undefined this ] */
+	dux_push_constructor(ctx, 2);
+	/* [ obj uint/undefined this constructor:3 ] */
+	duk_get_prop_string(ctx, 3, DUX_IPK_PERIDOT_SPI_SPICON);
+	/* [ obj uint/undefined this constructor:3 con_constructor:4 ] */
 	duk_get_prop_string(ctx, 2, DUX_IPK_PERIDOT_SPI_PINS);
-	/* [ uint uint/undefined this uint ] */
-	pins.uint = duk_require_uint(ctx, 3);
-	duk_pop(ctx);
-	/* [ uint uint/undefined this ] */
+	/* [ obj uint/undefined this constructor:3 con_constructor:4 pins:5 ] */
+	pins.uint = duk_require_uint(ctx, 5);
 	pins.ss_n = dux_get_peridot_pin(ctx, 0);
-
-	return spi_connect_body(ctx, &pins);
+	duk_pop(ctx);
+	/* [ obj uint/undefined this constructor:3 con_constructor:4 ] */
+	duk_replace(ctx, 0);
+	/* [ con_constructor uint/undefined this constructor:3 ] */
+	duk_pop_2(ctx);
+	/* [ con_constructor uint/undefined ] */
+	return peridot_spi_connect_body(ctx, &pins);
 }
 
 /*
  * Getter of PeridotSPI.prototype.pins
  */
-DUK_LOCAL duk_ret_t spi_proto_pins_getter(duk_context *ctx)
+DUK_LOCAL duk_ret_t peridot_spi_proto_pins_getter(duk_context *ctx)
 {
 	spi_pins_t pins;
 
@@ -447,24 +478,24 @@ DUK_LOCAL duk_ret_t spi_proto_pins_getter(duk_context *ctx)
 /*
  * List of class methods
  */
-DUK_LOCAL const duk_function_list_entry spi_funcs[] = {
-	{ "connect", spi_connect, 2 },
+DUK_LOCAL const duk_function_list_entry peridot_spi_funcs[] = {
+	{ "connect", peridot_spi_connect, 2 },
 	{ NULL, NULL, 0 }
 };
 
 /*
  * List of prototype methods
  */
-DUK_LOCAL const duk_function_list_entry spi_proto_funcs[] = {
-	{ "connect", spi_proto_connect, 2 },
+DUK_LOCAL const duk_function_list_entry peridot_spi_proto_funcs[] = {
+	{ "connect", peridot_spi_proto_connect, 2 },
 	{ NULL, NULL, 0 }
 };
 
 /*
  * List of prototype properties
  */
-DUK_LOCAL const dux_property_list_entry spi_proto_props[] = {
-	{ "pins", spi_proto_pins_getter, NULL },
+DUK_LOCAL const dux_property_list_entry peridot_spi_proto_props[] = {
+	{ "pins", peridot_spi_proto_pins_getter, NULL },
 	{ NULL, NULL, NULL }
 };
 
@@ -473,46 +504,24 @@ DUK_LOCAL const dux_property_list_entry spi_proto_props[] = {
  */
 DUK_INTERNAL duk_errcode_t dux_peridot_spi_init(duk_context *ctx)
 {
-	extern peridot_spi_master_pfc_map *const peridot_spi_drivers[];
-	duk_idx_t index;
-
-	/* [ ... obj ] */
+	/* [ require module exports ] */
 	dux_push_named_c_constructor(
-			ctx, "PeridotSPI", spi_constructor, 1,
-			spi_funcs, spi_proto_funcs, NULL, spi_proto_props);
-	/* [ ... obj constructor ] */
-	duk_push_array(ctx);
-	/* [ ... obj constructor arr ] */
-	for (index = 0;; ++index)
-	{
-		peridot_spi_master_pfc_map *map;
-		map = peridot_spi_drivers[index];
-		if (!map)
-		{
-			break;
-		}
-		dux_push_thrpool(ctx, 1, 1);
-		duk_push_pointer(ctx, map);
-		/* [ ... obj constructor arr thrpool pointer ] */
-		duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT_SPI_DRIVER);
-		/* [ ... obj constructor arr thrpool ] */
-		duk_put_prop_index(ctx, -2, index);
-		/* [ ... obj constructor arr ] */
-	}
-
-	duk_put_prop_string(ctx, -2, DUX_IPK_PERIDOT_SPI_POOLS);
-	/* [ ... obj constructor ] */
-
-	if (index == 0)
-	{
-		// No map
-		duk_pop(ctx);
-		/* [ ... obj ] */
-		return DUK_ERR_ERROR;
-	}
-
-	duk_put_prop_string(ctx, -2, "SPI");
-	/* [ ... obj ] */
+			ctx, "PeridotSPI", peridot_spi_constructor, 1,
+			peridot_spi_funcs, peridot_spi_proto_funcs,
+			NULL, peridot_spi_proto_props);
+	/* [ require module exports constructor:3 ] */
+	duk_dup(ctx, 0);
+	duk_push_string(ctx, "hardware");
+	duk_call(ctx, 1);
+	/* [ require module exports constructor:3 hardware:4 ] */
+	duk_get_prop_string(ctx, 4, "SPIConnection");
+	/* [ require module exports constructor:3 hardware:4 SPIConnection:5 ] */
+	duk_put_prop_string(ctx, 3, DUX_IPK_PERIDOT_SPI_SPICON);
+	/* [ require module exports constructor:3 hardware:4 ] */
+	duk_pop(ctx);
+	/* [ require module exports constructor:3 ] */
+	duk_put_prop_string(ctx, 2, "SPI");
+	/* [ require module exports ] */
 	return DUK_ERR_NONE;
 }
 

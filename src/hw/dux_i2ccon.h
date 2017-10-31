@@ -7,14 +7,14 @@
  * Structures
  */
 
-typedef struct dux_i2ccon_data
+typedef struct
 {
-	void (*transfer)(duk_context *ctx, struct dux_i2ccon_data *data);
-	duk_ret_t (*update_bitrate)(duk_context *ctx, struct dux_i2ccon_data *data);
-	duk_uint_t slaveAddress;
-	duk_uint_t bitrate;
+	duk_ret_t (*transfer)(duk_context *ctx, void *data);
+	duk_ret_t (*slaveAddress_getter)(duk_context *ctx, void *data);
+	duk_ret_t (*bitrate_getter)(duk_context *ctx, void *data);
+	duk_ret_t (*bitrate_setter)(duk_context *ctx, void *data);
 }
-dux_i2ccon_data;
+dux_i2ccon_functions;
 
 /*
  * Functions

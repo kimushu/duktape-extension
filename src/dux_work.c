@@ -1,6 +1,7 @@
 #include "dux_internal.h"
 #include <pthread.h>
 #include <semaphore.h>
+#include <errno.h>
 
 typedef struct {
     dux_work_finalizer finalizer;
@@ -120,7 +121,7 @@ DUK_INTERNAL dux_work_t *dux_work_alloc(duk_context *ctx, duk_size_t size, dux_w
     req_priv = duk_alloc(ctx, total_size);
     if (!req_priv)
     {
-        duk_error(ctx, DUK_ERR_ERROR, "Cannot allocate work memory");
+        (void)duk_generic_error(ctx, "Cannot allocate work memory");
         return NULL;
     }
     memset(req_priv, 0, total_size);
@@ -168,7 +169,7 @@ DUK_INTERNAL void dux_queue_work(duk_context *ctx, dux_work_t *req, dux_work_cb 
             goto ready;
         }
     }
-    duk_error(ctx, DUK_ERR_ERROR, "Work queue is not initialized");
+    (void)duk_generic_error(ctx, "Work queue is not initialized");
     return;
 
 ready:
@@ -194,7 +195,7 @@ ready:
     if (pthread_create(&req_priv->thread, NULL, (void *(*)(void *))work_worker, req_priv) != 0)
     {
         req_priv->work_cb = NULL;
-        duk_error(ctx, DUK_ERR_ERROR, "Cannot create worker thread");
+        (void)duk_generic_error(ctx, "Cannot create worker thread (errno=%d)", errno);
     }
 }
 

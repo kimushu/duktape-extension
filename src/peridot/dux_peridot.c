@@ -63,6 +63,7 @@ DUK_LOCAL duk_errcode_t peridot_entry(duk_context *ctx)
 	duk_push_c_function(ctx, peridot_startLed_getter, 1 /* with key */);
 	duk_def_prop(ctx, -3, DUK_DEFPROP_HAVE_GETTER | DUK_DEFPROP_SET_ENUMERABLE);
 
+	/* [ require module exports ] */
 	return dux_invoke_initializers(ctx,
 		DUX_INIT_PERIDOT_GPIO
 		DUX_INIT_PERIDOT_I2C

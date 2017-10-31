@@ -4,6 +4,9 @@
 
 // #define DEBUG
 
+DUK_INTERNAL const char DUX_KEY_PROTOTYPE[]   = "prototype";
+DUK_INTERNAL const char DUX_KEY_CONSTRUCTOR[] = "constructor";
+
 DUK_LOCAL const char DUX_IPK_TABLE[]        = DUX_IPK("bTable");
 DUK_LOCAL const char DUX_IPK_STORE[]        = DUX_IPK("bStore");
 DUK_LOCAL const char DUX_IPK_FILE_ACCESS[]  = DUX_IPK("bFile");
@@ -157,45 +160,67 @@ DUK_INTERNAL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_id
 	/* [ ... super ... constructor inherited ] */
 }
 
+DUK_LOCAL void *dux_alloc_buffer(duk_context *ctx, duk_size_t size, duk_bool_t external)
+{
+	void *buf;
+	if (!external)
+	{
+		return duk_push_fixed_buffer(ctx, size);
+	}
+	buf = duk_alloc(ctx, size);
+	if (!buf)
+	{
+		(void)duk_generic_error(ctx, "Cannot allocate memory (size=%u)", size);
+		return NULL;
+	}
+	duk_push_pointer(ctx, buf);
+	return buf;
+}
+
 /*
- * Convert to byte array (fixed buffer)
+ * Convert to byte array (fixed buffer or external buffer)
  */
-DUK_INTERNAL void *dux_to_byte_buffer(duk_context *ctx, duk_idx_t index, duk_size_t *out_size)
+DUK_INTERNAL void *dux_convert_to_byte_buffer(duk_context *ctx, duk_idx_t idx, duk_size_t *out_size, duk_bool_t external)
 {
 	/* [ ... val ... ] */
 	duk_size_t len;
 	void *buf;
 	const void *src;
 
-	index = duk_normalize_index(ctx, index);
-	if (duk_is_array(ctx, index))
+	idx = duk_normalize_index(ctx, idx);
+	if (duk_is_array(ctx, idx))
 	{
 		/* Array */
 		duk_uarridx_t aidx;
 		unsigned char *dest;
 
-		len = duk_get_length(ctx, index);
-		buf = duk_push_fixed_buffer(ctx, len);
+		len = duk_get_length(ctx, idx);
+		buf = dux_alloc_buffer(ctx, len, external);
+		/* [ ... val ... buf|ptr ] */
 		dest = (unsigned char *)buf;
 		for (aidx = 0; aidx < len; ++aidx)
 		{
 			duk_int_t value;
-			duk_get_prop_index(ctx, index, aidx);
+			duk_get_prop_index(ctx, idx, aidx);
 			value = dux_require_int_range(ctx, -1, 0, 255);
 			duk_pop(ctx);
 			*dest++ = (unsigned char)value;
 		}
 	}
-	else if (((src = duk_get_lstring(ctx, index, &len)) != NULL) ||
-			 ((src = duk_require_buffer_data(ctx, index, &len)) != NULL))
+	else if (((src = duk_get_lstring(ctx, idx, &len)) != NULL) ||
+			 ((src = duk_require_buffer_data(ctx, idx, &len)) != NULL))
 	{
 		/* string or non-empty buffers */
-		buf = duk_push_fixed_buffer(ctx, len);
+		buf = dux_alloc_buffer(ctx, len, external);
 		memcpy(buf, src, len);
 	}
 	else
 	{
 		/* invalid data type */
+		if (out_size)
+		{
+			*out_size = 0;
+		}
 		return NULL;
 	}
 
@@ -204,7 +229,9 @@ DUK_INTERNAL void *dux_to_byte_buffer(duk_context *ctx, duk_idx_t index, duk_siz
 		*out_size = len;
 	}
 
-	duk_replace(ctx, index);
+	external ? duk_pop(ctx) : duk_replace(ctx, idx);
+	/* [ ... val ... ] (external == true) */
+	/* [ ... buf ... ] (external == false) */
 	return buf;
 }
 

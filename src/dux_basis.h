@@ -18,6 +18,9 @@ enum
 	DUX_TICK_RET_ABORT    = 2,
 };
 
+DUK_INTERNAL_DECL const char DUX_KEY_PROTOTYPE[];
+DUK_INTERNAL_DECL const char DUX_KEY_CONSTRUCTOR[];
+
 /*
  * Structures
  */
@@ -45,11 +48,16 @@ DUK_INTERNAL_DECL duk_int_t dux_invoke_tick_handlers(duk_context *ctx, ...);
 DUK_INTERNAL_DECL void dux_report_error(duk_context *ctx);
 DUK_INTERNAL_DECL void dux_report_warning(duk_context *ctx);
 DUK_INTERNAL_DECL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_idx);
-DUK_INTERNAL_DECL void *dux_to_byte_buffer(duk_context *ctx, duk_idx_t index, duk_size_t *out_size);
+DUK_INTERNAL_DECL void *dux_convert_to_byte_buffer(duk_context *ctx, duk_idx_t idx, duk_size_t *out_size, duk_bool_t external);
 DUK_INTERNAL_DECL duk_int_t dux_require_int_range(duk_context *ctx, duk_idx_t index,
 		duk_int_t minimum, duk_int_t maximum);
 DUK_INTERNAL_DECL duk_bool_t dux_get_array_index(duk_context *ctx, duk_idx_t key_idx, duk_uarridx_t *result);
 DUK_INTERNAL_DECL duk_ret_t dux_read_file(duk_context *ctx, const char *path);
+
+#define dux_to_byte_buffer(ctx, idx, out_size) \
+	dux_convert_to_byte_buffer((ctx), (idx), (out_size), 0)
+#define dux_alloc_as_byte_buffer(ctx, idx, out_size) \
+	dux_convert_to_byte_buffer((ctx), (idx), (out_size), 1)
 
 /*
  * Bind arguments (Function.bind(undefined, args...))
@@ -181,8 +189,8 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 		dux_put_property_list(ctx, -1, prototype_props);
 	}
 	duk_dup(ctx, -2);
-	duk_put_prop_string(ctx, -2, "constructor");
-	duk_put_prop_string(ctx, -2, "prototype");
+	duk_put_prop_string(ctx, -2, DUX_KEY_CONSTRUCTOR);
+	duk_put_prop_string(ctx, -2, DUX_KEY_PROTOTYPE);
 	/* [ ... constructor ] */
 	return result;
 }
@@ -220,8 +228,23 @@ DUK_INLINE duk_idx_t dux_push_inherited_named_c_constructor(
 	{
 		dux_put_property_list(ctx, -1, prototype_props);
 	}
-	duk_put_prop_string(ctx, -2, "prototype");
+	duk_put_prop_string(ctx, -2, DUX_KEY_PROTOTYPE);
 	return result;
+}
+
+/*
+ * Push constructor of current instance
+ */
+DUK_LOCAL
+DUK_INLINE void dux_push_constructor(duk_context *ctx, duk_idx_t this_idx)
+{
+	/* [ ... this ... ] */
+	duk_get_prototype(ctx, this_idx);
+	/* [ ... this ... prototype ] */
+	duk_get_prop_string(ctx, -1, DUX_KEY_CONSTRUCTOR);
+	/* [ ... this ... prototype constructor ] */
+	duk_replace(ctx, -2);
+	/* [ ... this ... constructor ] */
 }
 
 /*
@@ -233,11 +256,11 @@ DUK_INLINE void dux_push_super_constructor(duk_context *ctx)
 	/* [ ... ] */
 	duk_push_current_function(ctx);
 	/* [ ... constructor ] */
-	duk_get_prop_string(ctx, -1, "prototype");
+	duk_get_prop_string(ctx, -1, DUX_KEY_PROTOTYPE);
 	/* [ ... constructor prototype ] */
 	duk_get_prototype(ctx, -1);
 	/* [ ... constructor prototype super_prototype ] */
-	duk_get_prop_string(ctx, -1, "constructor");
+	duk_get_prop_string(ctx, -1, DUX_KEY_CONSTRUCTOR);
 	/* [ ... constructor prototype super_prototype super ] */
 	duk_replace(ctx, -4);
 	/* [ ... super prototype super_prototype ] */

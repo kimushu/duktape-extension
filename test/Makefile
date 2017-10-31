@@ -25,8 +25,7 @@ endif
 
 .PHONY: test
 test: $(TARGET) tsc
-	#./$< $(wildcard out/*.js) $(wildcard out/**/*.js)
-	./$< out/work.js
+	./$< $(wildcard out/*.js) $(wildcard out/**/*.js)
 
 .PHONY: tsc
 tsc:

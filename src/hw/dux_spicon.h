@@ -7,20 +7,18 @@
  * Structures
  */
 
-typedef struct dux_spicon_data
+typedef struct
 {
-	/* [ ... func obj(writedata) obj(readbuffer) this aux ] */
-	void (*transfer)(duk_context *ctx, struct dux_spicon_data *data,
-			duk_size_t read_skip, duk_uint_t filler);
-
-	duk_ret_t (*update_bitrate)(duk_context *ctx, struct dux_spicon_data *data);
-	duk_ret_t (*get_slaveSelect)(duk_context *ctx, struct dux_spicon_data *data);
-
-	duk_uint_t bitrate;
-	duk_uint8_t mode;
-	duk_uint8_t lsbFirst;
+	duk_ret_t (*transferRaw)(duk_context *ctx, void *data);
+	duk_ret_t (*bitrate_getter)(duk_context *ctx, void *data);
+	duk_ret_t (*bitrate_setter)(duk_context *ctx, void *data);
+	duk_ret_t (*lsbFirst_getter)(duk_context *ctx, void *data);
+	duk_ret_t (*lsbFirst_setter)(duk_context *ctx, void *data);
+	duk_ret_t (*mode_getter)(duk_context *ctx, void *data);
+	duk_ret_t (*mode_setter)(duk_context *ctx, void *data);
+	duk_ret_t (*slaveSelect_getter)(duk_context *ctx, void *data);
 }
-dux_spicon_data;
+dux_spicon_functions;
 
 /*
  * Functions

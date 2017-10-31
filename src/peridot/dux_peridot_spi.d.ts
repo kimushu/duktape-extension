@@ -36,7 +36,7 @@ declare namespace Dux {
         /**
          * Connect to SPI device with given slave select pin
          */
-        connect(ss_n_pin: number | string, bitrate?: number): SPIConnection;
+        connect(ss_n_pin: PeridotPin, bitrate?: number): SPIConnection;
     }
 }
 

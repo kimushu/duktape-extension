@@ -1,142 +1,44 @@
-/*
- * ECMA objects:
- *    class I2CConnection {
- *      constructor(<PlainBuffer> data) {
- *      }
- *
- *      read(<uint> readlen [,<Function> callback]) {
- *        return;
- *      }
- *
- *      transfer(<ArrayBuffer/string> writedata,
- *               <uint> readlen [,
- *               <Function> callback]) {
- *        return;
- *      }
- *
- *      write(<ArrayBuffer/string> writedata [,
- *            <Function> callback]) {
- *        return;
- *      }
- *
- *      get bitrate()       { return <uint>; }
- *      set bitrate(<uint> value) {}
- *
- *      get slaveAddress()  { return <uint>; }
- *    }
- *
- * Native functions:
- *    void dux_push_i2ccon_constructor(duk_context *ctx);
- */
 #if !defined(DUX_OPT_NO_HARDWARE_MODULES) && !defined(DUX_OPT_NO_I2C)
 #include "../dux_internal.h"
 
-DUK_LOCAL const char DUX_IPK_I2CCON_DATA[] = DUX_IPK("icData");
-DUK_LOCAL const char DUX_IPK_I2CCON_AUX[]  = DUX_IPK("icAux");
-
-/*
- * Get data pointer
- */
-DUK_LOCAL dux_i2ccon_data *i2ccon_get_data(duk_context *ctx)
-{
-	dux_i2ccon_data *data;
-
-	duk_push_this(ctx);
-	duk_get_prop_string(ctx, -1, DUX_IPK_I2CCON_DATA);
-	data = (dux_i2ccon_data *)duk_require_buffer(ctx, -1, NULL);
-	duk_pop_2(ctx);
-	return data;
-}
+DUK_LOCAL const char DUX_IPK_I2CCON_DATA[]  = DUX_IPK("icD");
+DUK_LOCAL const char DUX_IPK_I2CCON_FUNCS[] = DUX_IPK("icF");
 
 /*
  * Entry of I2CConnection constructor
  */
 DUK_LOCAL duk_ret_t i2ccon_constructor(duk_context *ctx)
 {
-	dux_i2ccon_data *data;
-	duk_ret_t result;
-
-	/* [ buf obj ] */
+	/* [ buf ptr(dux_i2ccon_functions) ] */
 	if (!duk_is_constructor_call(ctx))
 	{
 		return DUK_RET_TYPE_ERROR;
 	}
-
-	data = (dux_i2ccon_data *)duk_require_buffer(ctx, 0, NULL);
+	duk_require_buffer(ctx, 0, NULL);
+	duk_require_pointer(ctx, 1);
 
 	duk_push_this(ctx);
-	/* [ buf obj this ] */
+	/* [ buf ptr this ] */
 	duk_swap(ctx, 0, 2);
-	/* [ this obj buf ] */
+	/* [ this ptr buf ] */
 	duk_put_prop_string(ctx, 0, DUX_IPK_I2CCON_DATA);
-	/* [ this obj ] */
-	duk_dup(ctx, 1);
-	/* [ this obj obj ] */
-	duk_put_prop_string(ctx, 0, DUX_IPK_I2CCON_AUX);
-	/* [ this obj ] */
-	duk_push_uint(ctx, data->bitrate);
-	/* [ this obj uint ] */
-	duk_insert(ctx, 0);
-	/* [ uint this obj ] */
-	result = (*data->update_bitrate)(ctx, data);
-	if (result != 0)
-	{
-		return result; /* return error */
-	}
-	/* [ this this obj ] */
+	duk_put_prop_string(ctx, 0, DUX_IPK_I2CCON_FUNCS);
 	return 0; /* return this */
 }
 
-/*
- * Common implementation of I2CConnection read/write functions
- * Stack on entry:  [ writedata readlen callback ]
- * Stack on return: [ promise/undefined ]
- */
-DUK_LOCAL duk_ret_t i2ccon_proto_transfer_body(duk_context *ctx,
-                                               duk_bool_t write)
+DUK_LOCAL dux_i2ccon_functions *i2ccon_proto_common(duk_context *ctx, void **pdata)
 {
-	dux_i2ccon_data *data = i2ccon_get_data(ctx);
-	duk_uint_t readlen;
+	duk_idx_t idx;
+	dux_i2ccon_functions *funcs;
 
-	/* [ writedata readlen callback ] */
-	readlen = duk_require_uint(ctx, 1);
-	/* [ writedata uint callback ] */
-	if (readlen > 0)
-	{
-		duk_push_fixed_buffer(ctx, readlen);
-	}
-	else
-	{
-		duk_push_undefined(ctx);
-	}
-	duk_replace(ctx, 1);
-	/* [ writedata buf/undefined callback ] */
-
-	if (write)
-	{
-		if (!dux_to_byte_buffer(ctx, 0, NULL))
-		{
-			return DUK_RET_TYPE_ERROR;
-		}
-	}
-	else
-	{
-		/* [ undefined buf/undefined callback ] */
-	}
-
-	dux_promise_new_with_node_callback(ctx, 2);
-	/* [ buf/undefined buf/undefined func promise/undefined ] */
-	duk_insert(ctx, 0);
-	/* [ promise/undefined buf/undefined buf/undefined func ] */
-
+	idx = duk_get_top(ctx);
 	duk_push_this(ctx);
-	duk_get_prop_string(ctx, 4, DUX_IPK_I2CCON_AUX);
-	/* [ promise/undefined buf/undefined buf/undefined func this obj ] */
-
-	(*data->transfer)(ctx, data);
-
-	/* [ promise/undefined ] */
-	return 1; /* return promise or undefined */
+	duk_get_prop_string(ctx, idx, DUX_IPK_I2CCON_DATA);
+	duk_get_prop_string(ctx, idx, DUX_IPK_I2CCON_FUNCS);
+	*pdata = duk_get_buffer_data(ctx, idx + 1, NULL);
+	funcs = (dux_i2ccon_functions *)duk_get_pointer(ctx, idx + 2);
+	duk_pop_3(ctx);
+	return funcs;
 }
 
 /*
@@ -145,10 +47,14 @@ DUK_LOCAL duk_ret_t i2ccon_proto_transfer_body(duk_context *ctx,
 DUK_LOCAL duk_ret_t i2ccon_proto_read(duk_context *ctx)
 {
 	/* [ uint func ] */
+	void *data;
+	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+
 	duk_push_undefined(ctx);
+	/* [ uint func undefined ] */
 	duk_insert(ctx, 0);
 	/* [ undefined uint func ] */
-	return i2ccon_proto_transfer_body(ctx, 0);
+	return (*funcs->transfer)(ctx, data);
 }
 
 /*
@@ -157,7 +63,10 @@ DUK_LOCAL duk_ret_t i2ccon_proto_read(duk_context *ctx)
 DUK_LOCAL duk_ret_t i2ccon_proto_transfer(duk_context *ctx)
 {
 	/* [ obj uint func ] */
-	return i2ccon_proto_transfer_body(ctx, 1);
+	void *data;
+	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+
+	return (*funcs->transfer)(ctx, data);
 }
 
 /*
@@ -166,10 +75,14 @@ DUK_LOCAL duk_ret_t i2ccon_proto_transfer(duk_context *ctx)
 DUK_LOCAL duk_ret_t i2ccon_proto_write(duk_context *ctx)
 {
 	/* [ obj func ] */
+	void *data;
+	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+
 	duk_push_uint(ctx, 0);
+	/* [ obj func 0 ] */
 	duk_swap(ctx, 1, 2);
 	/* [ obj 0 func ] */
-	return i2ccon_proto_transfer_body(ctx, 1);
+	return (*funcs->transfer)(ctx, data);
 }
 
 /*
@@ -177,11 +90,10 @@ DUK_LOCAL duk_ret_t i2ccon_proto_write(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_getter(duk_context *ctx)
 {
-	dux_i2ccon_data *data = i2ccon_get_data(ctx);
-
-	duk_push_uint(ctx, data->bitrate);
-	/* [ uint ] */
-	return 1; /* return uint */
+	/* [  ] */
+	void *data;
+	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	return (*funcs->bitrate_getter)(ctx, data);
 }
 
 /*
@@ -189,30 +101,10 @@ DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_getter(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
 {
-	dux_i2ccon_data *data = i2ccon_get_data(ctx);
-	duk_uint_t old_bitrate;
-	duk_int_t new_bitrate;
-	duk_ret_t result;
-
 	/* [ uint ] */
-	old_bitrate = data->bitrate;
-	new_bitrate = duk_require_int(ctx, 0);
-	if (new_bitrate <= 0)
-	{
-		return DUK_RET_RANGE_ERROR;
-	}
-	data->bitrate = new_bitrate;
-	duk_push_this(ctx);
-	/* [ uint this ] */
-	duk_get_prop_string(ctx, 1, DUX_IPK_I2CCON_AUX);
-	/* [ uint this obj ] */
-	result = (*data->update_bitrate)(ctx, data);
-	if (result != 0)
-	{
-		data->bitrate = old_bitrate;
-		return result;
-	}
-	return 0; /* return undefined */
+	void *data;
+	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	return (*funcs->bitrate_setter)(ctx, data);
 }
 
 /*
@@ -220,10 +112,9 @@ DUK_LOCAL duk_ret_t i2ccon_proto_bitrate_setter(duk_context *ctx)
  */
 DUK_LOCAL duk_ret_t i2ccon_proto_slaveAddress_getter(duk_context *ctx)
 {
-	dux_i2ccon_data *data = i2ccon_get_data(ctx);
-	duk_push_uint(ctx, data->slaveAddress);
-	/* [ uint ] */
-	return 1; /* return uint */
+	void *data;
+	dux_i2ccon_functions *funcs = i2ccon_proto_common(ctx, &data);
+	return (*funcs->slaveAddress_getter)(ctx, data);
 }
 
 /*
