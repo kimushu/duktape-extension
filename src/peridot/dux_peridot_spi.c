@@ -148,7 +148,8 @@ DUK_LOCAL duk_ret_t peridot_spicon_after_work_cb(duk_context *ctx, peridot_spico
 	/* [ int callback buf bufobj:3 undefined:4 ] */
 	duk_replace(ctx, 2);
 	/* [ int callback undefined bufobj:3 ] */
-	return duk_pcall(ctx, 2);
+	duk_call(ctx, 2);
+	return 0;
 }
 
 /*
@@ -158,34 +159,38 @@ DUK_LOCAL duk_ret_t peridot_spicon_transferRaw(duk_context *ctx, peridot_spicon_
 {
 	/* [ obj(writeData) int(readLen) uint(filler) func:3 ] */
 	duk_uint_t filler;
-	peridot_spicon_req_t *req;
-	req = (peridot_spicon_req_t *)dux_work_alloc(ctx, sizeof(*req),
-			(dux_work_finalizer)peridot_spicon_finalize);
-	memcpy(&req->data, data, sizeof(*data));
+	peridot_spicon_req_t req;
 
-	req->writeData = dux_alloc_as_byte_buffer(ctx, 0, &req->writeLength);
+	memcpy(&req.data, data, sizeof(*data));
+
+	req.writeData = dux_alloc_as_byte_buffer(ctx, 0, &req.writeLength);
 	if (duk_is_boolean(ctx, 1))
 	{
 		// Full-duplex (Write and read)
-		req->readSkip = req->writeLength;
-		req->readLength = req->writeLength;
+		req.readSkip = req.writeLength;
+		req.readLength = req.writeLength;
 	}
 	else
 	{
 		// Half-duplex (Write, then read)
-		req->readSkip = req->writeLength;
-		req->readLength = duk_require_uint(ctx, 1);
+		req.readSkip = req.writeLength;
+		req.readLength = duk_require_uint(ctx, 1);
 	}
-	if (req->readLength > 0)
+	if (req.readLength > 0)
 	{
-		req->readData = duk_alloc(ctx, req->readLength);
-		if (!req->readData)
+		req.readData = duk_alloc(ctx, req.readLength);
+		if (!req.readData)
 		{
-			return duk_generic_error(ctx, "Cannot allocate read buffer (length=%u)", req->readLength);
+			duk_free(ctx, (void *)req.writeData);
+			return duk_generic_error(ctx, "Cannot allocate read buffer (length=%u)", req.readLength);
 		}
 	}
+	else
+	{
+		req.readData = NULL;
+	}
 	filler = duk_require_uint(ctx, 2);
-	req->flags =
+	req.flags =
 			((filler << PERIDOT_SPI_MASTER_FILLER_OFST) &
 				PERIDOT_SPI_MASTER_FILLER_MSK) | data->flags;
 
@@ -193,8 +198,11 @@ DUK_LOCAL duk_ret_t peridot_spicon_transferRaw(duk_context *ctx, peridot_spicon_
 	/* [ obj(writeData) uint(readLen) uint(filler) func:3 promise|undefined:4 ] */
 	duk_swap(ctx, 3, 4);
 	/* [ obj(writeData) uint(readLen) uint(filler) promise|undefined:3 func:4 ] */
-	dux_queue_work(ctx, (dux_work_t *)req, (dux_work_cb)peridot_spicon_work_cb,
-			(dux_after_work_cb)peridot_spicon_after_work_cb, 1);
+	dux_queue_work(ctx,
+			(dux_work_t *)&req, sizeof(req),
+			(dux_work_cb)peridot_spicon_work_cb,
+			(dux_after_work_cb)peridot_spicon_after_work_cb, 1,
+			(dux_work_finalizer)peridot_spicon_finalize);
 	/* [ obj(writeData) uint(readLen) uint(filler) promise|undefined:3 ] */
 	return 1;
 }

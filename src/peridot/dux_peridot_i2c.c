@@ -126,7 +126,8 @@ DUK_LOCAL duk_ret_t peridot_i2ccon_after_work_cb(duk_context *ctx, peridot_i2cco
 	/* [ int callback buf bufobj:3 undefined:4 ] */
 	duk_replace(ctx, 2);
 	/* [ int callback undefined bufobj:3 ] */
-	return duk_pcall(ctx, 2);
+	duk_call(ctx, 2);
+	return 0;
 }
 
 /*
@@ -135,28 +136,35 @@ DUK_LOCAL duk_ret_t peridot_i2ccon_after_work_cb(duk_context *ctx, peridot_i2cco
 DUK_LOCAL duk_ret_t peridot_i2ccon_transfer(duk_context *ctx, peridot_i2ccon_data_t *data)
 {
 	/* [ obj uint func ] */
-	peridot_i2ccon_req_t *req;
-	req = (peridot_i2ccon_req_t *)dux_work_alloc(ctx, sizeof(*req),
-			(dux_work_finalizer)peridot_i2ccon_finalize);
-	memcpy(&req->data, data, sizeof(*data));
+	peridot_i2ccon_req_t req;
 
-	req->writeData = dux_alloc_as_byte_buffer(ctx, 0, &req->writeLength);
-	req->readLength = duk_require_uint(ctx, 1);
-	if (req->readLength > 0)
+	memcpy(&req.data, data, sizeof(*data));
+
+	req.writeData = dux_alloc_as_byte_buffer(ctx, 0, &req.writeLength);
+	req.readLength = duk_require_uint(ctx, 1);
+	if (req.readLength > 0)
 	{
-		req->readData = duk_alloc(ctx, req->readLength);
-		if (!req->readData)
+		req.readData = duk_alloc(ctx, req.readLength);
+		if (!req.readData)
 		{
-			return duk_generic_error(ctx, "Cannot allocate read buffer (length=%u)", req->readLength);
+			duk_free(ctx, (void *)req.writeData);
+			return duk_generic_error(ctx, "Cannot allocate read buffer (length=%u)", req.readLength);
 		}
+	}
+	else
+	{
+		req.readData = NULL;
 	}
 
 	dux_promise_new_with_node_callback(ctx, 2);
 	/* [ obj uint func promise|undefined ] */
 	duk_swap(ctx, 2, 3);
 	/* [ obj uint promise|undefined func ] */
-	dux_queue_work(ctx, (dux_work_t *)req, (dux_work_cb)peridot_i2ccon_work_cb,
-			(dux_after_work_cb)peridot_i2ccon_after_work_cb, 1);
+	dux_queue_work(ctx,
+			(dux_work_t *)&req, sizeof(req),
+			(dux_work_cb)peridot_i2ccon_work_cb,
+			(dux_after_work_cb)peridot_i2ccon_after_work_cb, 1,
+			(dux_work_finalizer)peridot_i2ccon_finalize);
 	/* [ obj uint promise|undefined ] */
 	return 1;
 }

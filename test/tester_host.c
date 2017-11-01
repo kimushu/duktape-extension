@@ -94,16 +94,13 @@ static duk_int_t test_after_work_cb(duk_context *ctx, dux_work_t *req)
 
 static duk_ret_t queue_work_caller(duk_context *ctx)
 {
-	dux_work_t *req;
 	/* [ buf arg1 ... argN ] */
 	/*       ^func           */
 	unsigned char *buf = (unsigned char *)duk_require_buffer_data(ctx, 0, NULL);
 	duk_remove(ctx, 0);
 	/* [ arg1 ... argN ] */
 
-	req = dux_work_alloc(ctx, sizeof(unsigned char *), test_work_finalizer);
-	*((unsigned char **)req) = buf;
-	dux_queue_work(ctx, req, test_work_cb, test_after_work_cb, duk_get_top(ctx));
+	dux_queue_work(ctx, (dux_work_t *)&buf, sizeof(unsigned char *), test_work_cb, test_after_work_cb, duk_get_top(ctx), test_work_finalizer);
 	return 0;
 }
 

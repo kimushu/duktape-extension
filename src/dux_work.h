@@ -20,9 +20,8 @@ typedef duk_int_t (*dux_after_work_cb)(duk_context *ctx, dux_work_t *req);
  * Functions
  */
 
-DUK_INTERNAL_DECL dux_work_t *dux_work_alloc(duk_context *ctx, duk_size_t size, dux_work_finalizer finalizer);
 DUK_INTERNAL_DECL duk_bool_t dux_work_aborting(dux_work_t *req);
-DUK_INTERNAL_DECL void dux_queue_work(duk_context *ctx, dux_work_t *req, dux_work_cb work_cb, dux_after_work_cb after_work_cb, duk_idx_t after_nargs);
+DUK_INTERNAL_DECL void dux_queue_work(duk_context *ctx, const dux_work_t *req, duk_size_t req_size, dux_work_cb work_cb, dux_after_work_cb after_work_cb, duk_idx_t after_nargs, dux_work_finalizer finalizer);
 
 DUK_INTERNAL_DECL duk_errcode_t dux_work_init(duk_context *ctx);
 DUK_INTERNAL_DECL duk_int_t dux_work_tick(duk_context *ctx);
