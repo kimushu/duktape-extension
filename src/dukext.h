@@ -10,12 +10,12 @@ extern "C" {
 /*
  * Version number: (major*10000)+(minor*100)+(patch)
  */
-#define DUX_VERSION         00100L
+#define DUX_VERSION         00101L
 
 /*
  * Version string: major.minor.patch
  */
-#define DUX_VERSION_STRING  "0.1.0"
+#define DUX_VERSION_STRING  "0.1.1"
 
 /*
  * Typedefs
