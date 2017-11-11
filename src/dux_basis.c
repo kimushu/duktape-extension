@@ -4,6 +4,8 @@
 
 // #define DEBUG
 
+DUK_INTERNAL const char DUX_KEY_BIND[]        = "bind";
+DUK_INTERNAL const char DUX_KEY_NAME[]        = "name";
 DUK_INTERNAL const char DUX_KEY_PROTOTYPE[]   = "prototype";
 DUK_INTERNAL const char DUX_KEY_CONSTRUCTOR[] = "constructor";
 
@@ -142,20 +144,20 @@ DUK_INTERNAL void dux_report_warning(duk_context *ctx)
 DUK_INTERNAL void dux_push_inherited_object(duk_context *ctx, duk_idx_t super_idx)
 {
 	/* [ ... super ... constructor ] */
-	/*  super_idx^     ^top          */
+	/*  super_idx^                   */
 	super_idx = duk_normalize_index(ctx, super_idx);
 	duk_get_global_string(ctx, "Object");
 	duk_push_string(ctx, "create");
-	duk_get_prop_string(ctx, super_idx, "prototype");
+	duk_get_prop_string(ctx, super_idx, DUX_KEY_PROTOTYPE);
 	/* [ ... super ... constructor Object "create" super_proto ] */
 	duk_call_prop(ctx, -3, 1);
-	/* [ ... super ... constructor Object inherited ] */
+	/* [ ... super ... constructor Object inherited_proto ] */
 	duk_replace(ctx, -2);
-	/* [ ... super ... constructor inherited ] */
+	/* [ ... super ... constructor inherited_proto ] */
 	duk_dup(ctx, -2);
-	/* [ ... super ... constructor inherited constructor ] */
-	duk_put_prop_string(ctx, -2, "constructor");
-	/* [ ... super ... constructor inherited ] */
+	/* [ ... super ... constructor inherited_proto constructor ] */
+	duk_put_prop_string(ctx, -2, DUX_KEY_CONSTRUCTOR);
+	/* [ ... super ... constructor inherited_proto ] */
 }
 
 DUK_LOCAL void *dux_alloc_buffer(duk_context *ctx, duk_size_t size, duk_bool_t external)

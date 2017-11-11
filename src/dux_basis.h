@@ -18,6 +18,8 @@ enum
 	DUX_TICK_RET_ABORT    = 2,
 };
 
+DUK_INTERNAL_DECL const char DUX_KEY_BIND[];
+DUK_INTERNAL_DECL const char DUX_KEY_NAME[];
 DUK_INTERNAL_DECL const char DUX_KEY_PROTOTYPE[];
 DUK_INTERNAL_DECL const char DUX_KEY_CONSTRUCTOR[];
 
@@ -68,7 +70,7 @@ DUK_LOCAL
 DUK_INLINE void dux_bind_arguments(duk_context *ctx, duk_idx_t nargs)
 {
 	/* [ ... func arg1 ... argN ] */
-	duk_push_string(ctx, "bind");
+	duk_push_string(ctx, DUX_KEY_BIND);
 	duk_insert(ctx, -(1 + nargs));
 	/* [ ... func "bind" arg1 ... argN ] */
 	duk_push_undefined(ctx);
@@ -89,7 +91,7 @@ DUK_LOCAL
 DUK_INLINE void dux_bind_this_arguments(duk_context *ctx, duk_idx_t nargs)
 {
 	/* [ ... func thisArg arg1 ... argN ] */
-	duk_push_string(ctx, "bind");
+	duk_push_string(ctx, DUX_KEY_BIND);
 	duk_insert(ctx, -(2 + nargs));
 	/* [ ... func "bind" thisArg arg1 ... argN ] */
 	duk_call_prop(ctx, -(3 + nargs), (1 + nargs));
@@ -116,6 +118,8 @@ DUK_LOCAL
 DUK_INLINE void dux_put_property_list(duk_context *ctx, duk_idx_t obj_index,
 		const dux_property_list_entry *props)
 {
+	/* [ ... obj ... ]  */
+	/*       ^obj_index */
 	const char *key;
 	obj_index = duk_normalize_index(ctx, obj_index);
 	for (; (key = props->key) != NULL; ++props)
@@ -148,10 +152,14 @@ DUK_INLINE duk_idx_t dux_push_named_c_function(
 		duk_context *ctx, const char *name,
 		duk_c_function func, duk_idx_t nargs)
 {
+	/* [ ... ] */
 	duk_idx_t result = duk_push_c_function(ctx, func, nargs);
-	duk_push_string(ctx, "name");
+	/* [ ... func ] */
+	duk_push_string(ctx, DUX_KEY_NAME);
 	duk_push_string(ctx, name);
+	/* [ ... func "name" name ] */
 	duk_def_prop(ctx, -3, DUK_DEFPROP_HAVE_VALUE);
+	/* [ ... func ] */
 	return result;
 }
 
@@ -168,31 +176,36 @@ DUK_INLINE duk_idx_t dux_push_named_c_constructor(
 		const dux_property_list_entry *prototype_props)
 {
 	/* [ ... ] */
-	duk_idx_t result = dux_push_named_c_function(ctx, name, func, nargs);
+	duk_idx_t proto_idx;
+	duk_idx_t func_idx = dux_push_named_c_function(ctx, name, func, nargs);
 	/* [ ... constructor ] */
 	if (static_funcs)
 	{
-		duk_put_function_list(ctx, -1, static_funcs);
+		duk_put_function_list(ctx, func_idx, static_funcs);
 	}
 	if (static_props)
 	{
-		dux_put_property_list(ctx, -1, static_props);
+		dux_put_property_list(ctx, func_idx, static_props);
 	}
-	duk_push_object(ctx);
+	proto_idx = duk_push_object(ctx);
 	/* [ ... constructor obj ] */
 	if (prototype_funcs)
 	{
-		duk_put_function_list(ctx, -1, prototype_funcs);
+		duk_put_function_list(ctx, proto_idx, prototype_funcs);
 	}
 	if (prototype_props)
 	{
-		dux_put_property_list(ctx, -1, prototype_props);
+		dux_put_property_list(ctx, proto_idx, prototype_props);
 	}
-	duk_dup(ctx, -2);
-	duk_put_prop_string(ctx, -2, DUX_KEY_CONSTRUCTOR);
-	duk_put_prop_string(ctx, -2, DUX_KEY_PROTOTYPE);
+	/* [ ... constructor prototype ] */
+	duk_dup(ctx, func_idx);
+	/* [ ... constructor prototype constructor ] */
+	duk_put_prop_string(ctx, proto_idx, DUX_KEY_CONSTRUCTOR);
+	/* [ ... constructor prototype ] */
+	duk_compact(ctx, proto_idx);
+	duk_put_prop_string(ctx, func_idx, DUX_KEY_PROTOTYPE);
 	/* [ ... constructor ] */
-	return result;
+	return func_idx;
 }
 
 /*
@@ -208,18 +221,24 @@ DUK_INLINE duk_idx_t dux_push_inherited_named_c_constructor(
 		const dux_property_list_entry *static_props,
 		const dux_property_list_entry *prototype_props)
 {
-	duk_idx_t result;
+	/* [ ... super ... ] */
+	/*       ^super_idx  */
+	duk_idx_t func_idx;
 	super_idx = duk_normalize_index(ctx, super_idx);
-	result = dux_push_named_c_function(ctx, name, func, nargs);
+	func_idx = dux_push_named_c_function(ctx, name, func, nargs);
+	/* [ ... super ... constructor ] */
+	/*  super_idx^     ^func_idx     */
 	if (static_funcs)
 	{
-		duk_put_function_list(ctx, -1, static_funcs);
+		duk_put_function_list(ctx, func_idx, static_funcs);
 	}
 	if (static_props)
 	{
-		dux_put_property_list(ctx, -1, static_props);
+		dux_put_property_list(ctx, func_idx, static_props);
 	}
 	dux_push_inherited_object(ctx, super_idx);
+	/* [ ... super ... constructor inherited_proto ] */
+	/*  super_idx^     ^func_idx                     */
 	if (prototype_funcs)
 	{
 		duk_put_function_list(ctx, -1, prototype_funcs);
@@ -228,8 +247,11 @@ DUK_INLINE duk_idx_t dux_push_inherited_named_c_constructor(
 	{
 		dux_put_property_list(ctx, -1, prototype_props);
 	}
-	duk_put_prop_string(ctx, -2, DUX_KEY_PROTOTYPE);
-	return result;
+	duk_compact(ctx, -1);
+	duk_put_prop_string(ctx, func_idx, DUX_KEY_PROTOTYPE);
+	/* [ ... super ... constructor ] */
+	/*  super_idx^     ^func_idx     */
+	return func_idx;
 }
 
 /*
