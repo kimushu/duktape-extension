@@ -90,9 +90,11 @@ DUK_LOCAL duk_ret_t modules_load_javascript(duk_context *ctx)
 	duk_call(ctx, 5);
 	/* [ any module require retval:3 ] */
 
-	// Return exports
+	// Return exports with compaction
+	duk_compact(ctx, 1);
 	duk_get_prop_string(ctx, 1, DUX_KEY_MODULES_EXPORTS);
 	/* [ any module require retval:3 exports:4 ] */
+	duk_compact(ctx, 4);
 	return 1;
 }
 
@@ -167,9 +169,11 @@ DUK_LOCAL duk_ret_t modules_require_core(duk_context *ctx, const char *name)
 	duk_call(ctx, 3);
 	/* [ name module require cache:3 retval:4 ] */
 
-	// Return exports
+	// Return exports with compaction
+	duk_compact(ctx, 1);
 	duk_get_prop_string(ctx, 1, DUX_KEY_MODULES_EXPORTS);
 	/* [ name module require cache:3 retval:4 exports:5 ] */
+	duk_compact(ctx, 5);
 	return 1;
 }
 
