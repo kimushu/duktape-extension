@@ -16,4 +16,5 @@ install:
   - npm install
 
 script:
+  - make -C src
   - make -C test

@@ -1,5 +1,7 @@
 # Extension modules for Duktape
 
+[![Build Status](https://travis-ci.org/kimushu/duktape-extension.svg?branch=master)](https://travis-ci.org/kimushu/duktape-extension)
+
 This extension adds Node.js-like environment and embedded hardware support to [Duktape](https://github.com/svaarala/duktape) (>= 2.x)
 
 * ES6 features
