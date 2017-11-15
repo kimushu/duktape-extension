@@ -10,7 +10,8 @@ os:
   - linux
 
 cache:
-  - node_modules
+  directories:
+    - node_modules
 
 install:
   - npm install
